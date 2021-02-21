@@ -352,6 +352,11 @@ async fn do_stats_update(ctx: Arc<Context>) {
     let current_name = ctx.cache.current_user().await.name;
     let guild_count = ctx.cache.guild_count().await as u64;
     let user_count = ctx.cache.user_count().await as u64;
+    let avg_ws_latency = if shard_info.0 == 0 {
+        "NaN".to_string()
+    } else {
+        format!("{}", shard_info.0)
+    };
     check_msg(
         status_channel
             .send_message(&ctx.http, |m| {
@@ -361,7 +366,7 @@ async fn do_stats_update(ctx: Arc<Context>) {
                         .field("Users in Cache", user_count, true)
                         .field("Cached Messages", 0.to_string(), true)
                         .field("Message Send Latency", format!("{}ms", ping_time), true)
-                        .field("Average WS Latency", format!("{}ms", shard_info.0), true)
+                        .field("Average WS Latency", format!("{}ms", avg_ws_latency), true)
                         .field("Shard Count", shard_info.1, true)
                 })
             })
