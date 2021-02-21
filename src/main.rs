@@ -550,8 +550,14 @@ async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
 }
 
 /// Checks that a message successfully sent; if not, then logs why to stdout.
-fn check_msg(result: SerenityResult<Message>) {
-    if let Err(why) = result {
-        println!("Error sending message: {:?}", why);
+fn check_msg(result: SerenityResult<Message>) -> Option<Message> {
+    return match result {
+        Err(why) => {
+            println!("Error sending message: {:?}", why);
+            None
+        }
+        Ok(message) => {
+            Some(message)
+        }
     }
 }
