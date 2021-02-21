@@ -16,7 +16,7 @@ sentry = "0.21.0"
 
 [dependencies.serenity]
 version = "0.10"
-features = ["client", "standard_framework", "voice", "rustls_backend", "framework"]
+features = ["client", "standard_framework", "voice", "rustls_backend", "framework", "cache"]
 
 [dependencies.tokio]
 version = "1.0"
