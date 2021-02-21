@@ -357,11 +357,11 @@ async fn do_stats_update(ctx: Arc<Context>) {
             .send_message(&ctx.http, |m| {
                 m.embed(|e| {
                     e.title(format!("{}'s status", current_name))
-                        .field("Guild Count", guild_count, true)
-                        .field("User Count", user_count, true)
+                        .field("Guilds in Cache", guild_count, true)
+                        .field("Users in Cache", user_count, true)
                         .field("Cached Messages", 0.to_string(), true)
-                        .field("Average Latency", format!("{}ms", ping_time), false)
-                        .field("Current Latency", format!("{}ms", shard_info.0), true)
+                        .field("Message Send Latency", format!("{}ms", ping_time), true)
+                        .field("Average WS Latency", format!("{}ms", shard_info.0), true)
                         .field("Shard Count", shard_info.1, true)
                 })
             })
