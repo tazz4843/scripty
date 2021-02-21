@@ -368,6 +368,8 @@ async fn do_stats_update(ctx: Arc<Context>) {
                         .field("Message Send Latency", format!("{}ms", ping_time), true)
                         .field("Average WS Latency", format!("{}ms", avg_ws_latency), true)
                         .field("Shard Count", shard_info.1, true)
+                        .field("Library", "[serenity-rs](https://github.com/serenity-rs/serenity)", true)
+                        .field("Source Code", "[Click me!](https://github.com/tazz4843/scripty)", true)
                 })
             })
             .await,
