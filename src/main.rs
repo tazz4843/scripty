@@ -339,7 +339,7 @@ async fn do_stats_update(ctx: Arc<Context>) {
         }
     };
     let start = std::time::SystemTime::now();
-    if let Err(why) = status_channel.start_typing(&ctx.http) {
+    if let Err(why) = status_channel.broadcast_typing(&ctx.http).await {
         println!("Failed to get latency! {}", why);
     }
     let ping_time = match start.elapsed() {
@@ -352,7 +352,6 @@ async fn do_stats_update(ctx: Arc<Context>) {
     let current_name = ctx.cache.current_user().await.name;
     let guild_count = ctx.cache.guild_count().await as u64;
     let user_count = ctx.cache.user_count().await as u64;
-    println!("Ping time is {}ms", ping_time);
     check_msg(
         status_channel
             .send_message(&ctx.http, |m| {
