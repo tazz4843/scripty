@@ -410,7 +410,12 @@ async fn main() {
         }
     };
 
-    let token = config["token"].as_str().unwrap();
+    let token = config["token"].as_str().expect("Expected 'token' key in the config.");
+
+    let _guard = sentry::init((config["sentry_url"].as_str().expect("Expected 'sentry_url' key in the config."), sentry::ClientOptions {
+        release: sentry::release_name!(),
+        ..Default::default()
+    }));
 
     let http = Http::new_with_token(&token);
 
