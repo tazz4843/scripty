@@ -290,36 +290,7 @@ impl TypeMapKey for ShardManagerWrapper {
 struct General;
 
 async fn do_stats_update(ctx: Arc<Context>) {
-    let shard_info = {
-        let data_read = ctx.data.read().await;
-
-        let shard_manager_lock = data_read
-            .get::<ShardManagerWrapper>()
-            .expect("Expected shard manager in data map.")
-            .clone();
-        let shard_manager_guard = shard_manager_lock.read().await;
-        let shard_manager = shard_manager_guard.lock().await;
-        let mut total: u8 = 0;
-        let mut latency: u128 = 0;
-        for i in shard_manager.runners.lock().await.iter() {
-            match i.1.latency {
-                Some(l) => {
-                    total += 1;
-                    latency += l.as_millis();
-                }
-                None => {
-                    // ignore if no latency available
-                }
-            }
-        }
-        if total == 0 {
-            // no shards ready
-            latency = 0
-        } else {
-            latency = latency / total as u128; // scales to a arbitrary number of shards well
-        }
-        (latency, total)
-    };
+    let shard_info = get_avg_ws_latency(ContextTypes::WithArc(&ctx)).await;
 
     ctx.cache.set_max_messages(0 as usize).await;
     let status_channel = ChannelId(791426352217587732);
@@ -370,10 +341,56 @@ async fn do_stats_update(ctx: Arc<Context>) {
                         .field("Shard Count", shard_info.1, true)
                         .field("Library", "[serenity-rs](https://github.com/serenity-rs/serenity)", true)
                         .field("Source Code", "[Click me!](https://github.com/tazz4843/scripty)", true)
+                        .colour(serenity::utils::Colour::BLURPLE)
                 })
             })
             .await,
     );
+}
+
+enum ContextTypes<'a> {
+    NoArc(&'a Context),
+    WithArc(&'a Arc<Context>)
+}
+
+/// Gets the average websocket latency.
+async fn get_avg_ws_latency(ctx: ContextTypes<'_>) -> (u128, u8) {
+    let c = match ctx {
+        ContextTypes::NoArc(c) => {
+            c
+        }
+        ContextTypes::WithArc(c) => {
+            c
+        }
+    };
+    let data_read = c.data.read().await;
+
+    let shard_manager_lock = data_read
+        .get::<ShardManagerWrapper>()
+        .expect("Expected shard manager in data map.")
+        .clone();
+    let shard_manager_guard = shard_manager_lock.read().await;
+    let shard_manager = shard_manager_guard.lock().await;
+    let mut total: u8 = 0;
+    let mut latency: u128 = 0;
+    for i in shard_manager.runners.lock().await.iter() {
+        match i.1.latency {
+            Some(l) => {
+                total += 1;
+                latency += l.as_millis();
+            }
+            None => {
+                // ignore if no latency available
+            }
+        }
+    }
+    if total == 0 {
+        // no shards ready
+        latency = 0
+    } else {
+        latency = latency / total as u128; // scales to a arbitrary number of shards well
+    }
+    (latency, total)
 }
 
 #[tokio::main]
@@ -551,7 +568,22 @@ async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
 
 #[command]
 async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
-    check_msg(msg.channel_id.say(&ctx.http, "Pong!").await);
+    let ws_latency = get_avg_ws_latency(ContextTypes::NoArc(&ctx)).await;
+
+    let ping_time = {
+        let start = std::time::SystemTime::now();
+        if let Err(why) = msg.channel_id.broadcast_typing(&ctx.http).await {
+            println!("Failed to get latency! {}", why);
+        };
+        match start.elapsed() {
+            Ok(t) => t.as_millis(),
+            Err(e) => {
+                println!("Failed to get ping time! {}", e);
+                0 as u128
+            }
+        }
+    };
+    check_msg(msg.channel_id.say(&ctx.http, format!("Pong!\nws: {}ms\nmsg: {}ms", ws_latency.0, ping_time)).await);
 
     Ok(())
 }
