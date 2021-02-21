@@ -103,6 +103,9 @@ impl VoiceEventHandler for Receiver {
         use EventContext as Ctx;
 
         match ctx {
+            Ctx::Track => {
+                // TODO
+            }
             Ctx::SpeakingStateUpdate(Speaking {
                 speaking,
                 ssrc,
@@ -328,6 +331,7 @@ async fn do_stats_update(ctx: Arc<Context>) {
     } else {
         format!("{}", shard_info.0)
     };
+
     check_msg(
         status_channel
             .send_message(&ctx.http, |m| {
