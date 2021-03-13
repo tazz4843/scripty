@@ -7,12 +7,16 @@ use songbird::model::id::UserId;
 use songbird::model::payload::{ClientConnect, ClientDisconnect, Speaking};
 use songbird::Event;
 use songbird::{EventContext, EventHandler as VoiceEventHandler};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
+use tokio::net::TcpStream;
 use tokio::process::Command;
 use tokio::sync::RwLock;
+use tokio_tungstenite::tungstenite::http::Response;
+use tokio_tungstenite::WebSocketStream;
+use tokio_tungstenite::{connect_async, MaybeTlsStream};
 
 pub static DECODE_TYPE: DecodeMode = DecodeMode::Decode;
 
@@ -135,8 +139,10 @@ pub async fn do_stats_update(ctx: Arc<Context>) {
 #[derive(Clone)]
 pub struct Receiver {
     ssrc_map: Arc<RwLock<HashMap<u32, UserId>>>,
-    audio_buffer: Arc<RwLock<Vec<i16>>>,
-    encoded_audio_buffer: Arc<RwLock<Vec<u8>>>,
+    audio_buffer: Arc<RwLock<HashMap<u32, Vec<i16>>>>,
+    encoded_audio_buffer: Arc<RwLock<HashMap<u32, Vec<u8>>>>,
+    pub websockets:
+        Arc<RwLock<HashMap<UserId, VecDeque<WebSocketStream<MaybeTlsStream<TcpStream>>>>>>,
 }
 
 impl Receiver {
@@ -144,12 +150,14 @@ impl Receiver {
         // You can manage state here, such as a buffer of audio packet bytes so
         // you can later store them in intervals.
         let ssrc_map = Arc::new(RwLock::new(HashMap::new()));
-        let audio_buffer = Arc::new(RwLock::new(Vec::new()));
-        let encoded_audio_buffer = Arc::new(RwLock::new(Vec::new()));
+        let audio_buffer = Arc::new(RwLock::new(HashMap::new()));
+        let encoded_audio_buffer = Arc::new(RwLock::new(HashMap::new()));
+        let websockets = Arc::new(RwLock::new(HashMap::new()));
         Self {
             ssrc_map,
             audio_buffer,
             encoded_audio_buffer,
+            websockets,
         }
     }
 }
@@ -186,18 +194,42 @@ impl VoiceEventHandler for Receiver {
                 if let Some(user_id) = user_id {
                     let mut map = self.ssrc_map.write().await;
                     map.insert(*ssrc, *user_id);
+                    match DECODE_TYPE {
+                        DecodeMode::Decrypt => {
+                            let mut audio_buf = self.encoded_audio_buffer.write().await;
+                            match audio_buf.get(ssrc) {
+                                Some(mut b) => {
+                                    b.clear();
+                                }
+                                None => {
+                                    audio_buf.insert(*ssrc, Vec::new());
+                                }
+                            }
+                        }
+                        DecodeMode::Decode => {
+                            let mut audio_buf = self.audio_buffer.write().await;
+                            match audio_buf.get(ssrc) {
+                                Some(mut b) => {
+                                    b.clear();
+                                }
+                                None => {
+                                    audio_buf.insert(*ssrc, Vec::new());
+                                }
+                            }
+                        }
+                        _ => {
+                            panic!("No supported decode mode found!")
+                        }
+                    }
                 } // otherwise just ignore it since we can't do anything about that
             }
             Ctx::SpeakingUpdate { ssrc, speaking } => {
                 // You can implement logic here which reacts to a user starting
                 // or stopping speaking.
-                let user_id: Option<&UserId> = None;
-                {
-                    // block that will drop lock when exited
+                let uid: u64 = match {
                     let map = self.ssrc_map.read().await;
-                    let user_id = map.get(&ssrc);
-                }
-                let uid: u64 = match user_id {
+                    map.get(&ssrc)
+                } {
                     Some(u) => u.to_string().parse().unwrap(),
                     None => 0,
                 };
@@ -206,99 +238,147 @@ impl VoiceEventHandler for Receiver {
                     self.audio_buffer.write().await.clear();
                     self.encoded_audio_buffer.write().await.clear();
                 } else {
-                    if DECODE_TYPE == DecodeMode::Decode {
-                        println!("Decode mode is DecodeMode::Decode");
-                        let audio = self.audio_buffer.read().await.clone();
-
-                        /*
-                        match OpenOptions::new()
-                            .write(true)
-                            .create(true)
-                            .open(format!("{}.pcm", ssrc))
-                            .await
-                        {
-                            Ok(mut f) => {
-                                for i in audio {
-                                    if let Err(e) = f.write_i16(i).await {
-                                        println!("Failed to write byte to file! {}", e);
-                                    };
+                    match DECODE_TYPE {
+                        DecodeMode::Decode => {
+                            println!("Decode mode is DecodeMode::Decode");
+                            let mut buf = self.audio_buffer.read().await;
+                            let audio = match buf.get(ssrc) {
+                                Some(a) => a,
+                                None => {
+                                    println!(
+                                        "Didn't find a user with SSRC {} in the audio buffers.",
+                                        ssrc
+                                    );
+                                    buf.insert(*ssrc, Vec::new());
+                                    buf.get(ssrc).expect("Just inserted item into buffer!")
                                 }
+                            };
+                            let mut new_ws = loop {
+                                match connect_async("ws://127.0.0.1:8080").await {
+                                    Ok(w) => {
+                                        break w;
+                                    }
+                                    Err(e) => {
+                                        println!(
+                                            "Unable to connect to websocket at 127.0.0.1! {:?}",
+                                            e
+                                        )
+                                    }
+                                };
+                            };
+                            for i in audio {
+                                if let Err(e) = new_ws.write_i16(*i).await {
+                                    println!("Failed to write byte to file! {}", e);
+                                };
                             }
-                            Err(e) => {
-                                println!("Failed to open/create file! {}", e);
-                            }
-                        };
-                        */
-                        let args = [
-                            "-f",
-                            "s16be",
-                            "-ar",
-                            "8000",
-                            "-ac",
-                            "2",
-                            "-acodec",
-                            "pcm_s16le",
-                            "-i",
-                            "-",
-                            &format!("{}.wav", ssrc),
-                        ];
+                            let user_id = {
+                                match self.ssrc_map.read().await.get(ssrc) {
+                                    Some(e) => e,
+                                    None => {
+                                        return None;
+                                    }
+                                }
+                            };
 
-                        match Command::new("ffmpeg")
-                            .args(&args)
-                            .kill_on_drop(true)
-                            .spawn()
-                        {
-                            Ok(p) => match p.stdin {
-                                Some(mut stdin) => {
+                            {
+                                let mut ws_dict = self.websockets.write().await;
+                                let mut wss = match ws_dict.remove(user_id) {
+                                    Some(w) => w,
+                                    None => {
+                                        return None;
+                                    }
+                                };
+                                wss.push_back(wss);
+                                ws_dict.insert(*user_id, wss);
+                            }
+
+                            /*
+                            match OpenOptions::new()
+                                .write(true)
+                                .create(true)
+                                .open(format!("{}.pcm", ssrc))
+                                .await
+                            {
+                                Ok(mut f) => {
                                     for i in audio {
-                                        if let Err(e) = stdin.write_i16(i).await {
+                                        if let Err(e) = f.write_i16(i).await {
                                             println!("Failed to write byte to file! {}", e);
                                         };
                                     }
-                                } // at this point there's a file named "{}.wav" in the directory
-                                None => {
-                                    println!("Failed to open FFMPEG stdin!")
                                 }
-                            },
-                            Err(e) => {
-                                println!("Failed to spawn FFMPEG!");
-                            }
-                        }
+                                Err(e) => {
+                                    println!("Failed to open/create file! {}", e);
+                                }
+                            };
+                            let args = [
+                                "-f",
+                                "s16be",
+                                "-ar",
+                                "8000",
+                                "-ac",
+                                "2",
+                                "-acodec",
+                                "pcm_s16le",
+                                "-i",
+                                "-",
+                                &format!("{}.wav", ssrc),
+                            ];
 
-                        // we now have a file named "{}.pcm" where {} is the user's SSRC.
-                        // TODO: read and send to STT API
-                        {
-                            self.audio_buffer.write().await.clear(); // now to clear it
-                        }
-                    } else if DECODE_TYPE == DecodeMode::Decrypt {
-                        println!("Decode mode is DecodeMode::Decrypt");
-                        let audio = self.encoded_audio_buffer.read().await.clone();
-
-                        match OpenOptions::new()
-                            .write(true)
-                            .create(true)
-                            .open(format!("{}.opus", ssrc))
-                            .await
-                        {
-                            Ok(mut f) => {
-                                for i in audio {
-                                    if let Err(e) = f.write_u8(i).await {
-                                        println!("Failed to write byte to file! {}", e);
-                                    };
+                            match Command::new("ffmpeg")
+                                .args(&args)
+                                .kill_on_drop(true)
+                                .spawn()
+                            {
+                                Ok(p) => match p.stdin {
+                                    Some(mut stdin) => {} // at this point there's a file named "{}.wav" in the directory
+                                    None => {
+                                        println!("Failed to open FFMPEG stdin!")
+                                    }
+                                },
+                                Err(e) => {
+                                    println!("Failed to spawn FFMPEG!");
                                 }
                             }
-                            Err(e) => {
-                                println!("Failed to open/create file! {}", e);
-                            }
-                        };
+                            // we now have a file named "{}.pcm" where {} is the user's SSRC.
+                            */
 
-                        // we now have a file named "{}.opus" where {} is the user's SSRC.
-                        // TODO: read and send to STT API
-                        {
-                            self.audio_buffer.write().await.clear(); // now to clear it
+                            self.audio_buffer.write().await.clear(); // now to clear buffer
                         }
-                    } else {
-                        println!("Decode mode is invalid!");
+                        DecodeMode::Decrypt => {
+                            println!("Decode mode is DecodeMode::Decrypt");
+                            todo!();
+
+                            /*
+                            let audio = self.encoded_audio_buffer.read().await.clone();
+
+                            match OpenOptions::new()
+                                .write(true)
+                                .create(true)
+                                .open(format!("{}.opus", ssrc))
+                                .await
+                            {
+                                Ok(mut f) => {
+                                    for i in audio {
+                                        if let Err(e) = f.write_u8(i).await {
+                                            println!("Failed to write byte to file! {}", e);
+                                        };
+                                    }
+                                }
+                                Err(e) => {
+                                    println!("Failed to open/create file! {}", e);
+                                }
+                            };
+
+                            // we now have a file named "{}.opus" where {} is the user's SSRC.
+                            // TODO: read and send to STT API
+                            {
+                                self.audio_buffer.write().await.clear(); // now to clear it
+                            }
+                             */
+                        }
+                        _ => {
+                            println!("Decode mode is invalid!");
+                        }
                     }
                 }
                 println!(
@@ -326,6 +406,8 @@ impl VoiceEventHandler for Receiver {
                     }
                 };
                 if let Some(audio) = audio {
+                    unimplemented!("Decoded audio is not currently supported.");
+                    /*
                     let aud = audio.clone();
                     println!("Audio packet: SSRC {}, user ID {}", packet.ssrc, uid);
 
@@ -343,8 +425,6 @@ impl VoiceEventHandler for Receiver {
                             j += 1;
                         }
                     }
-
-                    /*
                     let mut f = match tokio::fs::File::open(format!("{}.pcm", packet.ssrc)).await {
                         Ok(f) => f,
                         Err(e) => {
@@ -367,6 +447,7 @@ impl VoiceEventHandler for Receiver {
                         end: audio_range,
                     };
                     let mut buf = self.encoded_audio_buffer.write().await;
+                    buf.get_mut(&packet.ssrc);
                     let mut counter: i64 = -1;
                     for i in &packet.payload {
                         counter += 1;
@@ -427,17 +508,22 @@ impl VoiceEventHandler for Receiver {
                         };
                     }
                 }
-                match key {
-                    Some(u) => {
-                        {
-                            let mut map = self.ssrc_map.write().await;
-                            map.remove(&u);
+                if let Some(u) = key {
+                    match DECODE_TYPE {
+                        DecodeMode::Decrypt => {
+                            let mut audio_buf = self.encoded_audio_buffer.write().await;
+                            audio_buf.remove(&u);
                         }
-                        println!("Removed {} from the user ID map.", u);
+                        DecodeMode::Decode => {
+                            let mut audio_buf = self.audio_buffer.write().await;
+                            audio_buf.remove(&u);
+                        }
+                        _ => {
+                            panic!("No supported decode mode found!")
+                        }
                     }
-                    None => {
-                        println!("Found no user with ID {} in the user ID map.", user_id);
-                    }
+                    let mut map = self.ssrc_map.write().await;
+                    map.remove(&u);
                 };
 
                 println!("Client disconnected: user {:?}", user_id);

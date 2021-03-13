@@ -23,6 +23,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::time::Duration;
 
+/// The module for background processing
+pub mod background_processing;
 /// The module for error handling of the commands
 pub mod cmd_error;
 /// The module for the `help` command

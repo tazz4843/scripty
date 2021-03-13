@@ -34,8 +34,6 @@ colour = 11771355
 # Full URI to your Redis instance
 redis_uri = \"redis:///localhost\"";
 
-pub const NUMBERS: [&str; 10] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
-
 /// The struct to implement TypeMapKey for, use this to get the SqlitePool from `ctx.data`
 pub struct SqlitePoolKey;
 impl TypeMapKey for SqlitePoolKey {
