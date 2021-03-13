@@ -14,3 +14,17 @@ Cargo.lock
 config.json
 
 venv/
+
+audio/
+
+.env
+
+bot.zip
+
+database.sqlite
+
+deepspeech-0.9.3-models.pbmm
+
+deepspeech-0.9.3-models.scorer
+
+DeepSpeech-examples
