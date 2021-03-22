@@ -2,6 +2,16 @@
 
 Welcome to Scripty's GitHub repo! This repo contains the bot's entire source code.
 
+## What is Scripty?
+
+In a nutshell, Scripty is a speech to text bot for Discord voice chats.
+
+## Invite the Bot
+
+The bot is still in early alpha. Bugs are expected.
+
+https://scripty.imaskeleton.me/invite
+
 ## Features/TODO
 
 | Feature | Done |
