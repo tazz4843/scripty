@@ -21,6 +21,7 @@ systemstat = "*"
 tokio-tungstenite = "*"
 serde_json = "1.0"
 futures-core = "*"
+uuid = { version = "0.8", features = ["serde", "v4"] }
 
 [dependencies.redis]
 version = "*"

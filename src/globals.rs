@@ -111,7 +111,7 @@ pub async fn set_db() -> SqlitePool {
 pub async fn set_redis() -> (Client, Connection) {
     let redis_uri = BotConfig::get()
         .expect("Couldn't get BOT_CONFIG to get the database file")
-        .database_file
+        .redis_uri
         .as_str();
 
     let client = Client::open(redis_uri).expect("Failed to initialize Redis client.");

@@ -12,13 +12,13 @@ use std::sync::Arc;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
-use tokio::process::Command;
+use tokio::process::{Child, Command};
 use tokio::sync::RwLock;
-use tokio_tungstenite::tungstenite::http::Response;
 use tokio_tungstenite::WebSocketStream;
 use tokio_tungstenite::{connect_async, MaybeTlsStream};
+use uuid::Uuid;
 
-pub static DECODE_TYPE: DecodeMode = DecodeMode::Decode;
+pub static DECODE_TYPE: DecodeMode = DecodeMode::Decrypt;
 
 pub enum ContextTypes<'a> {
     NoArc(&'a Context),
@@ -100,7 +100,20 @@ pub async fn do_stats_update(ctx: Arc<Context>) {
     };
     let current_name = ctx.cache.current_user().await.name;
     let guild_count = ctx.cache.guild_count().await as u64;
-    let user_count = ctx.cache.user_count().await as u64;
+    let user_count = {
+        let mut c: u64 = 0;
+        for g in ctx.cache.guilds().await {
+            match g.to_guild_cached(&ctx).await {
+                Some(gc) => {
+                    c += gc.member_count;
+                }
+                None => {
+                    c += 0 as u64;
+                }
+            }
+        }
+        c
+    };
     let avg_ws_latency = if shard_info.0 == 0 {
         "NaN".to_string()
     } else {
@@ -112,7 +125,7 @@ pub async fn do_stats_update(ctx: Arc<Context>) {
             m.embed(|e| {
                 e.title(format!("{}'s status", current_name))
                     .field("Guilds in Cache", guild_count, true)
-                    .field("Users in Cache", user_count, true)
+                    .field("Users in Cached Guilds", user_count, true)
                     .field("Cached Messages", 0.to_string(), true)
                     .field("Message Send Latency", format!("{}ms", ping_time), true)
                     .field("Average WS Latency", format!("{}ms", avg_ws_latency), true)
@@ -127,7 +140,7 @@ pub async fn do_stats_update(ctx: Arc<Context>) {
                         "[Click me!](https://github.com/tazz4843/scripty)",
                         true,
                     )
-                    .colour(serenity::utils::Colour::BLURPLE)
+                    .colour(serenity::utils::Colour::ROHRKATZE_BLUE)
             })
         })
         .await
@@ -141,8 +154,6 @@ pub struct Receiver {
     ssrc_map: Arc<RwLock<HashMap<u32, UserId>>>,
     audio_buffer: Arc<RwLock<HashMap<u32, Vec<i16>>>>,
     encoded_audio_buffer: Arc<RwLock<HashMap<u32, Vec<u8>>>>,
-    pub websockets:
-        Arc<RwLock<HashMap<UserId, VecDeque<WebSocketStream<MaybeTlsStream<TcpStream>>>>>>,
 }
 
 impl Receiver {
@@ -152,12 +163,10 @@ impl Receiver {
         let ssrc_map = Arc::new(RwLock::new(HashMap::new()));
         let audio_buffer = Arc::new(RwLock::new(HashMap::new()));
         let encoded_audio_buffer = Arc::new(RwLock::new(HashMap::new()));
-        let websockets = Arc::new(RwLock::new(HashMap::new()));
         Self {
             ssrc_map,
             audio_buffer,
             encoded_audio_buffer,
-            websockets,
         }
     }
 }
@@ -197,8 +206,8 @@ impl VoiceEventHandler for Receiver {
                     match DECODE_TYPE {
                         DecodeMode::Decrypt => {
                             let mut audio_buf = self.encoded_audio_buffer.write().await;
-                            match audio_buf.get(ssrc) {
-                                Some(mut b) => {
+                            match audio_buf.get_mut(ssrc) {
+                                Some(b) => {
                                     b.clear();
                                 }
                                 None => {
@@ -208,8 +217,8 @@ impl VoiceEventHandler for Receiver {
                         }
                         DecodeMode::Decode => {
                             let mut audio_buf = self.audio_buffer.write().await;
-                            match audio_buf.get(ssrc) {
-                                Some(mut b) => {
+                            match audio_buf.get_mut(ssrc) {
+                                Some(b) => {
                                     b.clear();
                                 }
                                 None => {
@@ -226,12 +235,12 @@ impl VoiceEventHandler for Receiver {
             Ctx::SpeakingUpdate { ssrc, speaking } => {
                 // You can implement logic here which reacts to a user starting
                 // or stopping speaking.
-                let uid: u64 = match {
+                let uid: u64 = {
                     let map = self.ssrc_map.read().await;
-                    map.get(&ssrc)
-                } {
-                    Some(u) => u.to_string().parse().unwrap(),
-                    None => 0,
+                    match map.get(&ssrc) {
+                        Some(u) => u.to_string().parse().unwrap(),
+                        None => 0,
+                    }
                 };
                 if *speaking {
                     // user started speaking, reset buffer if not already
@@ -239,9 +248,10 @@ impl VoiceEventHandler for Receiver {
                     self.encoded_audio_buffer.write().await.clear();
                 } else {
                     match DECODE_TYPE {
-                        DecodeMode::Decode => {
-                            println!("Decode mode is DecodeMode::Decode");
-                            let mut buf = self.audio_buffer.read().await;
+                        DecodeMode::Decrypt => {
+                            println!("Decode mode is DecodeMode::Decrypt");
+                            tokio::task::spawn_blocking(move || {});
+                            let mut buf = self.encoded_audio_buffer.read().await;
                             let audio = match buf.get(ssrc) {
                                 Some(a) => a,
                                 None => {
@@ -249,59 +259,21 @@ impl VoiceEventHandler for Receiver {
                                         "Didn't find a user with SSRC {} in the audio buffers.",
                                         ssrc
                                     );
-                                    buf.insert(*ssrc, Vec::new());
-                                    buf.get(ssrc).expect("Just inserted item into buffer!")
+                                    return None;
                                 }
                             };
-                            let mut new_ws = loop {
-                                match connect_async("ws://127.0.0.1:8080").await {
-                                    Ok(w) => {
-                                        break w;
-                                    }
-                                    Err(e) => {
-                                        println!(
-                                            "Unable to connect to websocket at 127.0.0.1! {:?}",
-                                            e
-                                        )
-                                    }
-                                };
-                            };
-                            for i in audio {
-                                if let Err(e) = new_ws.write_i16(*i).await {
-                                    println!("Failed to write byte to file! {}", e);
-                                };
-                            }
-                            let user_id = {
-                                match self.ssrc_map.read().await.get(ssrc) {
-                                    Some(e) => e,
-                                    None => {
-                                        return None;
-                                    }
-                                }
-                            };
-
-                            {
-                                let mut ws_dict = self.websockets.write().await;
-                                let mut wss = match ws_dict.remove(user_id) {
-                                    Some(w) => w,
-                                    None => {
-                                        return None;
-                                    }
-                                };
-                                wss.push_back(wss);
-                                ws_dict.insert(*user_id, wss);
-                            }
+                            let file_id = Uuid::new_v4();
 
                             /*
                             match OpenOptions::new()
                                 .write(true)
                                 .create(true)
-                                .open(format!("{}.pcm", ssrc))
+                                .open(format!("{}.pcm", file_id.as_u128()))
                                 .await
                             {
                                 Ok(mut f) => {
                                     for i in audio {
-                                        if let Err(e) = f.write_i16(i).await {
+                                        if let Err(e) = f.write_u8(*i).await {
                                             println!("Failed to write byte to file! {}", e);
                                         };
                                     }
@@ -310,6 +282,7 @@ impl VoiceEventHandler for Receiver {
                                     println!("Failed to open/create file! {}", e);
                                 }
                             };
+                            */
                             let args = [
                                 "-f",
                                 "s16be",
@@ -321,32 +294,53 @@ impl VoiceEventHandler for Receiver {
                                 "pcm_s16le",
                                 "-i",
                                 "-",
-                                &format!("{}.wav", ssrc),
+                                &format!("{}.wav", file_id.as_u128()),
                             ];
 
-                            match Command::new("ffmpeg")
+                            let mut child = match Command::new("ffmpeg")
                                 .args(&args)
+                                .stdin(std::process::Stdio::piped())
+                                .stdout(std::process::Stdio::null())
+                                .stderr(std::process::Stdio::inherit())
                                 .kill_on_drop(true)
                                 .spawn()
                             {
-                                Ok(p) => match p.stdin {
-                                    Some(mut stdin) => {} // at this point there's a file named "{}.wav" in the directory
-                                    None => {
-                                        println!("Failed to open FFMPEG stdin!")
-                                    }
-                                },
                                 Err(e) => {
                                     println!("Failed to spawn FFMPEG!");
+                                    return None;
                                 }
-                            }
+                                Ok(c) => {
+                                    println!("Spawned FFMPEG!");
+                                    c
+                                }
+                            };
+
+                            match child.stdin {
+                                Some(ref mut stdin) => {
+                                    for i in audio {
+                                        if let Err(e) = stdin.write_u8(*i).await {
+                                            println!("Failed to write byte to FFMPEG stdin! {}", e);
+                                        };
+                                    }
+                                }
+                                None => {
+                                    println!("Failed to open FFMPEG stdin!");
+                                    return None;
+                                }
+                            };
                             // we now have a file named "{}.pcm" where {} is the user's SSRC.
-                            */
+                            // at this point we shouldn't do anything more in this function to avoid blocking too long.
+                            // we've already done what cannot be done in another function, which is getting the actual audio
+                            // so we spawn a background thread to do the rest, and return from this function.
+                            tokio::spawn(async move {
+                                let _ = child.wait().await;
+                            }); // TODO: actually implement the DeepSpeech lib!
 
                             self.audio_buffer.write().await.clear(); // now to clear buffer
                         }
-                        DecodeMode::Decrypt => {
-                            println!("Decode mode is DecodeMode::Decrypt");
-                            todo!();
+                        DecodeMode::Decode => {
+                            println!("Decode mode is DecodeMode::Decode");
+                            unimplemented!();
 
                             /*
                             let audio = self.encoded_audio_buffer.read().await.clone();
@@ -405,64 +399,66 @@ impl VoiceEventHandler for Receiver {
                         None => 0,
                     }
                 };
-                if let Some(audio) = audio {
-                    unimplemented!("Decoded audio is not currently supported.");
-                    /*
-                    let aud = audio.clone();
-                    println!("Audio packet: SSRC {}, user ID {}", packet.ssrc, uid);
+                match audio {
+                    Some(audio) => {
+                        println!("Decoded audio is not currently supported.");
+                        /*
+                        let aud = audio.clone();
+                        println!("Audio packet: SSRC {}, user ID {}", packet.ssrc, uid);
 
-                    {
-                        // get exclusive write access to the audio buffer and write to it
-                        let mut buf = self.audio_buffer.write().await;
-                        let mut j: u32 = 0;
-                        for i in aud {
-                            buf.push(i);
-                            /*
-                            if j % 2 == 0 {
+                        {
+                            // get exclusive write access to the audio buffer and write to it
+                            let mut buf = self.audio_buffer.write().await;
+                            let mut j: u32 = 0;
+                            for i in aud {
                                 buf.push(i);
+                                /*
+                                if j % 2 == 0 {
+                                    buf.push(i);
+                                }
+                                 */
+                                j += 1;
                             }
-                             */
-                            j += 1;
                         }
-                    }
-                    let mut f = match tokio::fs::File::open(format!("{}.pcm", packet.ssrc)).await {
-                        Ok(f) => f,
-                        Err(e) => {
-                            println!("Failed to open file! {}", e);
-                            return None;
+                        let mut f = match tokio::fs::File::open(format!("{}.pcm", packet.ssrc)).await {
+                            Ok(f) => f,
+                            Err(e) => {
+                                println!("Failed to open file! {}", e);
+                                return None;
+                            }
+                        };
+                        for i in audio {
+                            f.write_i16(*i).await;
                         }
-                    };
-                    for i in audio {
-                        f.write_i16(*i).await;
-                    }
 
-                    tokio::fs::write(format!("{}.pcm", packet.ssrc), &audio).await;
-                     */
-                } else {
-                    println!("RTP packet, but no audio. Driver may not be configured to decode.");
-                    let audio_range: &usize = &(packet.payload.len() - payload_end_pad);
-                    println!("Audio range is {}", &audio_range);
-                    let range = std::ops::Range {
-                        start: payload_offset,
-                        end: audio_range,
-                    };
-                    let mut buf = self.encoded_audio_buffer.write().await;
-                    buf.get_mut(&packet.ssrc);
-                    let mut counter: i64 = -1;
-                    for i in &packet.payload {
-                        counter += 1;
-                        if counter <= *payload_offset as i64 {
-                            continue;
-                        } else if counter > *audio_range as i64 {
-                            continue;
-                        } else {
-                            buf.push(i.clone())
+                        tokio::fs::write(format!("{}.pcm", packet.ssrc), &audio).await;
+                         */
+                    }
+                    _ => {
+                        let audio_range: &usize = &(packet.payload.len() - payload_end_pad);
+                        let range = std::ops::Range {
+                            start: payload_offset,
+                            end: audio_range,
+                        };
+                        let mut buf = self.encoded_audio_buffer.write().await;
+                        let mut b = match buf.get_mut(&packet.ssrc) {
+                            Some(b) => b,
+                            None => {
+                                return None;
+                            }
+                        };
+                        let mut counter: i64 = -1;
+                        for i in &packet.payload {
+                            counter += 1;
+                            if counter <= *payload_offset as i64 {
+                                continue;
+                            } else if counter > *audio_range as i64 {
+                                continue;
+                            } else {
+                                b.push(i.clone())
+                            }
                         }
                     }
-                    println!(
-                        "Audio packet sequence {:05}, SSRC {}, user ID {}",
-                        packet.sequence.0, packet.ssrc, uid
-                    );
                 }
             }
             Ctx::RtcpPacket {
@@ -497,17 +493,18 @@ impl VoiceEventHandler for Receiver {
                 // voice channel e.g., finalise processing of statistics etc.
                 // You will typically need to map the User ID to their SSRC; observed when
                 // speaking or connecting.
-                let mut key: Option<u32> = None;
-                {
+                let mut key: Option<u32> = {
                     let map = self.ssrc_map.read().await;
+                    let mut id: Option<u32> = None;
                     for i in map.iter() {
                         // walk the map to find the UserId
                         if i.1 == user_id {
-                            key = Some(*i.0);
+                            id = Some(*i.0);
                             break;
-                        };
+                        }
                     }
-                }
+                    id
+                };
                 if let Some(u) = key {
                     match DECODE_TYPE {
                         DecodeMode::Decrypt => {
@@ -519,7 +516,7 @@ impl VoiceEventHandler for Receiver {
                             audio_buf.remove(&u);
                         }
                         _ => {
-                            panic!("No supported decode mode found!")
+                            unimplemented!("No supported decode mode found!")
                         }
                     }
                     let mut map = self.ssrc_map.write().await;
