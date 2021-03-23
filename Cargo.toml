@@ -22,6 +22,7 @@ tokio-tungstenite = "*"
 serde_json = "1.0"
 futures-core = "*"
 uuid = { version = "0.8", features = ["serde", "v4"] }
+deepspeech = "0.9"
 
 [dependencies.redis]
 version = "*"
