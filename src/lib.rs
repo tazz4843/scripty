@@ -41,6 +41,8 @@ pub mod cmd_prefix;
 pub mod cmd_setup;
 /// The module for the `status` command
 pub mod cmd_status;
+/// The module for DeepSpeech utils.
+pub mod deepspeech;
 /// The module for the statics and structs to save the statics to
 pub mod globals;
 /// The module for a few useful utilities

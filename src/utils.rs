@@ -8,6 +8,7 @@ use songbird::model::payload::{ClientConnect, ClientDisconnect, Speaking};
 use songbird::Event;
 use songbird::{EventContext, EventHandler as VoiceEventHandler};
 use std::collections::{HashMap, VecDeque};
+use std::process::Stdio;
 use std::sync::Arc;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
@@ -249,6 +250,7 @@ impl VoiceEventHandler for Receiver {
                 } else {
                     match DECODE_TYPE {
                         DecodeMode::Decrypt => {
+                            // all of this code reeks of https://www.youtube.com/watch?v=lIFE7h3m40U
                             println!("Decode mode is DecodeMode::Decrypt");
                             tokio::task::spawn_blocking(move || {});
                             let mut buf = self.encoded_audio_buffer.read().await;
@@ -299,9 +301,9 @@ impl VoiceEventHandler for Receiver {
 
                             let mut child = match Command::new("ffmpeg")
                                 .args(&args)
-                                .stdin(std::process::Stdio::piped())
-                                .stdout(std::process::Stdio::null())
-                                .stderr(std::process::Stdio::inherit())
+                                .stdin(Stdio::piped())
+                                .stdout(Stdio::null())
+                                .stderr(Stdio::inherit())
                                 .kill_on_drop(true)
                                 .spawn()
                             {
@@ -333,6 +335,7 @@ impl VoiceEventHandler for Receiver {
                             // we've already done what cannot be done in another function, which is getting the actual audio
                             // so we spawn a background thread to do the rest, and return from this function.
                             tokio::spawn(async move {
+                                // this one line ^ is why the entire bot needs nightly Rust
                                 let _ = child.wait().await;
                             }); // TODO: actually implement the DeepSpeech lib!
 
