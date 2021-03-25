@@ -115,7 +115,7 @@ pub async fn set_redis() -> (Client, Connection) {
         .as_str();
 
     let client = Client::open(redis_uri).expect("Failed to initialize Redis client.");
-    let mut conn = client
+    let conn = client
         .get_async_connection()
         .await
         .expect("Failed to initialize Redis connection.");
