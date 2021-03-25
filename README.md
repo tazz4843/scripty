@@ -22,6 +22,18 @@ https://scripty.imaskeleton.me/invite
 | Send to Chat | no |
 | Database | partially (migrate to Postgres) |
 
+## Self-hosting
+
+No support for self-hosting will be given.
+
+Building the bot requires Nightly Rust, with `libdeepspeech.so` in your `LD_LIBRARY_PATH` 
+and `LIBRARY_PATH` environment variables.
+
+### It doesn't work on Windows!
+Yeah I know. Windows support is not planned, nor will any PRs for it be accepted.
+If you make one, it will be closed and **not** merged.
+
+
 ## More Info
 
 If you'd like to know more about the bot, feel free to join its Discord server!
