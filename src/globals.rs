@@ -1,10 +1,12 @@
 use std::{convert::TryFrom, fs, io};
 
+use deepspeech::Model;
 use once_cell::sync::OnceCell;
 use redis::{aio::Connection, AsyncCommands, Client};
 use serde::Deserialize;
 use serenity::{http::client::Http, model::id::UserId, prelude::TypeMapKey};
 use sqlx::{query, sqlite::SqliteConnectOptions, SqlitePool};
+use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -122,6 +124,50 @@ pub async fn set_redis() -> (Client, Connection) {
     (client, conn)
 }
 
+//noinspection SpellCheckingInspection
+pub async fn set_model() -> Model {
+    let model_dir_str = BotConfig::get()
+        .expect("Couldn't get BOT_CONFIG to get the model path")
+        .model_path
+        .as_str();
+
+    let dir_path = Path::new(&model_dir_str);
+    let mut graph_name: Box<Path> = dir_path.join("output_graph.pb").into_boxed_path();
+    let mut scorer_name: Option<Box<Path>> = None;
+    // search for model in model directory
+    for file in dir_path
+        .read_dir()
+        .expect("Specified model dir is not a dir")
+    {
+        if let Ok(f) = file {
+            let file_path = f.path();
+            if file_path.is_file() {
+                if let Some(ext) = file_path.extension() {
+                    if ext == "pb" || ext == "pbmm" {
+                        graph_name = file_path.into_boxed_path();
+                    } else if ext == "scorer" {
+                        scorer_name = Some(file_path.into_boxed_path());
+                    }
+                }
+            }
+        }
+    }
+    let mut m = Model::load_from_files(&graph_name).expect("Failed to load model!");
+    // enable external scorer if found in the model folder
+    if let Some(scorer) = scorer_name {
+        println!(
+            "Using external scorer `{}`",
+            scorer
+                .to_str()
+                .expect("Failed to convert scorer to string!")
+        );
+        m.enable_external_scorer(&scorer)
+            .expect("Failed to initalize scorer!");
+    }
+
+    m
+}
+
 /// The struct to hold the values in the config file
 #[derive(Deserialize)]
 pub struct BotConfig {
@@ -133,6 +179,7 @@ pub struct BotConfig {
     github: String,
     colour: u32,
     redis_uri: String,
+    model_path: String,
 }
 
 /// The static to hold the struct, so that it's global
@@ -201,6 +248,10 @@ impl BotConfig {
     /// The getter for the `redis_uri` field, to be used with `get()`
     pub fn redis_uri(&self) -> &String {
         &self.redis_uri
+    }
+    /// The getter for the `model_path` field, to be used with `get()`
+    pub fn model_path(&self) -> &String {
+        &self.model_path
     }
 }
 
