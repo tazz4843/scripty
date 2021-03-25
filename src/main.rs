@@ -52,7 +52,11 @@ async fn main() {
     // If you want, you can do this on a per-call basis---here, we need it to
     // read the audio data that other people are sending us!
     let songbird = Songbird::serenity();
-    songbird.set_config(DriverConfig::default().decode_mode(DECODE_TYPE.clone()));
+    songbird.set_config(
+        DriverConfig::default()
+            .decode_mode(DECODE_TYPE.clone())
+            .crypto_mode(songbird::driver::CryptoMode::Normal),
+    );
 
     let framework = StandardFramework::new()
         .configure(|c| {
