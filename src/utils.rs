@@ -32,6 +32,12 @@ impl TypeMapKey for ShardManagerWrapper {
     type Value = Arc<RwLock<Arc<serenity::prelude::Mutex<ShardManager>>>>;
 }
 
+pub struct ModelWrapper;
+
+impl TypeMapKey for ModelWrapper {
+    type Value = Arc<RwLock<deepspeech::Model>>;
+}
+
 /// Gets the average websocket latency.
 pub async fn get_avg_ws_latency(ctx: ContextTypes<'_>) -> (u128, u8) {
     let c = match ctx {
