@@ -46,7 +46,7 @@ async fn main() {
 
     let db = set_db().await;
 
-    let (client, mut conn) = set_redis().await;
+    let (client, conn) = set_redis().await;
 
     // Here, we need to configure Songbird to decode all incoming voice packets.
     // If you want, you can do this on a per-call basis---here, we need it to
