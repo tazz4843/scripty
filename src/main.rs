@@ -96,7 +96,8 @@ async fn main() {
             GatewayIntents::GUILD_MESSAGES
                 | GatewayIntents::DIRECT_MESSAGES
                 | GatewayIntents::GUILDS
-                | GatewayIntents::GUILD_VOICE_STATES,
+                | GatewayIntents::GUILD_VOICE_STATES
+                | GatewayIntents::GUILD_MEMBERS,
         )
         .event_handler(Handler {
             is_loop_running: AtomicBool::new(false),
