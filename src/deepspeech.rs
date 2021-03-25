@@ -2,9 +2,11 @@ use std::env::args;
 use std::fs::File;
 use std::path::Path;
 
+use crate::utils::ModelWrapper;
 use audrey::read::Reader;
 use dasp_interpolate::linear::Linear;
 use dasp_signal::{from_iter, interpolate::Converter, Signal};
+use deepspeech::errors::DeepspeechError;
 use deepspeech::Model;
 use serenity::prelude::Context;
 
@@ -19,38 +21,14 @@ TODO list:
 * channel cropping
 * use clap or something to parse the command line arguments
 */
-pub fn run_stt(ctx: Context, file_path: String) {
-    let model_dir_str = args().nth(1).expect("Please specify model dir");
-    let audio_file_path = args()
-        .nth(2)
-        .expect("Please specify an audio file to run STT on");
-    let dir_path = Path::new(&model_dir_str);
-    let mut graph_name: Box<Path> = dir_path.join("output_graph.pb").into_boxed_path();
-    let mut scorer_name: Option<Box<Path>> = None;
-    // search for model in model directory
-    for file in dir_path
-        .read_dir()
-        .expect("Specified model dir is not a dir")
-    {
-        if let Ok(f) = file {
-            let file_path = f.path();
-            if file_path.is_file() {
-                if let Some(ext) = file_path.extension() {
-                    if ext == "pb" || ext == "pbmm" {
-                        graph_name = file_path.into_boxed_path();
-                    } else if ext == "scorer" {
-                        scorer_name = Some(file_path.into_boxed_path());
-                    }
-                }
-            }
-        }
-    }
-    let mut m = Model::load_from_files(&graph_name).unwrap();
-    // enable external scorer if found in the model folder
-    if let Some(scorer) = scorer_name {
-        println!("Using external scorer `{}`", scorer.to_str().unwrap());
-        m.enable_external_scorer(&scorer).unwrap();
-    }
+pub async fn run_stt(ctx: Context, audio_file_path: String) -> Result<String, DeepspeechError> {
+    let mut m_lock = ctx
+        .data
+        .read()
+        .await
+        .get::<ModelWrapper>()
+        .expect("Expected DeepSpeech model to be placed in at initialization.");
+    let mut m = m_lock.read().await;
 
     let audio_file = File::open(audio_file_path).unwrap();
     let mut reader = Reader::new(audio_file).unwrap();
@@ -73,12 +51,13 @@ pub fn run_stt(ctx: Context, file_path: String) {
             desc.sample_rate() as f64,
             SAMPLE_RATE as f64,
         );
-        conv.until_exhausted().map(|v| v[0]).collect()
+        tokio::task::spawn_blocking(conv.until_exhausted().map(|v| v[0]).collect())
+            .await
+            .expect("Failed to spawn blocking task!")
     };
 
     // Run the speech to text algorithm
-    let result = m.speech_to_text(&audio_buf).unwrap();
-
-    // Output the result
-    println!("{}", result);
+    tokio::task::spawn_blocking(|| m.speech_to_text(&audio_buf))
+        .await
+        .expect("test")
 }
