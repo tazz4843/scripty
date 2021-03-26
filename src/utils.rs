@@ -335,7 +335,7 @@ impl VoiceEventHandler for Receiver {
                                     Ok(_) => {}
                                     Err(e) => {
                                         println!("FFMPEG failed! {}", e);
-                                        return None;
+                                        return ();
                                     }
                                 };
                                 match run_stt(file_path.clone()).await {
@@ -352,6 +352,7 @@ impl VoiceEventHandler for Receiver {
                                         println!("Failed to delete {}! {}", &file_path, e);
                                     }
                                 };
+                                ()
                             });
                         }
                         DecodeMode::Decode => {
