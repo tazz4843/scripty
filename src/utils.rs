@@ -253,10 +253,7 @@ impl VoiceEventHandler for Receiver {
                                 let mut buf = self.encoded_audio_buffer.write().await;
                                 match buf.remove(ssrc) {
                                     Some(a) => {
-                                        self.encoded_audio_buffer
-                                            .write()
-                                            .await
-                                            .insert(*ssrc, Vec::new());
+                                        buf.insert(*ssrc, Vec::new());
                                         a
                                     }
                                     None => {
@@ -264,10 +261,7 @@ impl VoiceEventHandler for Receiver {
                                             "Didn't find a user with SSRC {} in the audio buffers.",
                                             ssrc
                                         );
-                                        self.encoded_audio_buffer
-                                            .write()
-                                            .await
-                                            .insert(*ssrc, Vec::new());
+                                        buf.insert(*ssrc, Vec::new());
                                         return None;
                                     }
                                 }
