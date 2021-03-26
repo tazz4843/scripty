@@ -249,15 +249,27 @@ impl VoiceEventHandler for Receiver {
                         DecodeMode::Decrypt => {
                             // all of this code reeks of https://www.youtube.com/watch?v=lIFE7h3m40U
                             println!("Decode mode is DecodeMode::Decrypt");
-                            let buf = self.encoded_audio_buffer.read().await;
-                            let audio = match buf.get(ssrc) {
-                                Some(a) => a,
-                                None => {
-                                    println!(
-                                        "Didn't find a user with SSRC {} in the audio buffers.",
-                                        ssrc
-                                    );
-                                    return None;
+                            let audio = {
+                                let mut buf = self.encoded_audio_buffer.write().await;
+                                match buf.remove(ssrc) {
+                                    Some(a) => {
+                                        self.encoded_audio_buffer
+                                            .write()
+                                            .await
+                                            .insert(*ssrc, Vec::new());
+                                        a
+                                    }
+                                    None => {
+                                        println!(
+                                            "Didn't find a user with SSRC {} in the audio buffers.",
+                                            ssrc
+                                        );
+                                        self.encoded_audio_buffer
+                                            .write()
+                                            .await
+                                            .insert(*ssrc, Vec::new());
+                                        return None;
+                                    }
                                 }
                             };
                             let file_id = Uuid::new_v4();
@@ -316,7 +328,7 @@ impl VoiceEventHandler for Receiver {
                             match child.stdin {
                                 Some(ref mut stdin) => {
                                     for i in audio {
-                                        if let Err(e) = stdin.write_u8(*i).await {
+                                        if let Err(e) = stdin.write_u8(i).await {
                                             println!("Failed to write byte to FFMPEG stdin! {}", e);
                                         };
                                     }
@@ -344,8 +356,6 @@ impl VoiceEventHandler for Receiver {
                                     }
                                 }
                             }); // TODO: actually implement the DeepSpeech lib!
-
-                            self.audio_buffer.write().await.clear(); // now to clear buffer
                         }
                         DecodeMode::Decode => {
                             println!("Decode mode is DecodeMode::Decode");
