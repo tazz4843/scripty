@@ -1,3 +1,4 @@
+use crate::deepspeech::run_stt;
 use serenity::async_trait;
 use serenity::client::bridge::gateway::ShardManager;
 use serenity::model::id::{ChannelId, MessageId};
@@ -7,16 +8,12 @@ use songbird::model::id::UserId;
 use songbird::model::payload::{ClientConnect, ClientDisconnect, Speaking};
 use songbird::Event;
 use songbird::{EventContext, EventHandler as VoiceEventHandler};
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::process::Stdio;
 use std::sync::Arc;
-use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
-use tokio::net::TcpStream;
-use tokio::process::{Child, Command};
+use tokio::process::Command;
 use tokio::sync::RwLock;
-use tokio_tungstenite::WebSocketStream;
-use tokio_tungstenite::{connect_async, MaybeTlsStream};
 use uuid::Uuid;
 
 pub static DECODE_TYPE: DecodeMode = DecodeMode::Decrypt;
@@ -30,12 +27,6 @@ pub struct ShardManagerWrapper;
 
 impl TypeMapKey for ShardManagerWrapper {
     type Value = Arc<RwLock<Arc<serenity::prelude::Mutex<ShardManager>>>>;
-}
-
-pub struct ModelWrapper;
-
-impl TypeMapKey for ModelWrapper {
-    type Value = Arc<RwLock<deepspeech::Model>>;
 }
 
 /// Gets the average websocket latency.
@@ -258,8 +249,7 @@ impl VoiceEventHandler for Receiver {
                         DecodeMode::Decrypt => {
                             // all of this code reeks of https://www.youtube.com/watch?v=lIFE7h3m40U
                             println!("Decode mode is DecodeMode::Decrypt");
-                            tokio::task::spawn_blocking(move || {});
-                            let mut buf = self.encoded_audio_buffer.read().await;
+                            let buf = self.encoded_audio_buffer.read().await;
                             let audio = match buf.get(ssrc) {
                                 Some(a) => a,
                                 None => {
@@ -343,6 +333,16 @@ impl VoiceEventHandler for Receiver {
                             tokio::spawn(async move {
                                 // this one line ^ is why the entire bot needs nightly Rust
                                 let _ = child.wait().await;
+                                let stt_result =
+                                    run_stt(format!("{}.wav", file_id.as_u128())).await;
+                                match stt_result {
+                                    Ok(r) => {
+                                        println!("{}", r);
+                                    }
+                                    Err(e) => {
+                                        println!("Failed to run speech-to-text! {}", e);
+                                    }
+                                }
                             }); // TODO: actually implement the DeepSpeech lib!
 
                             self.audio_buffer.write().await.clear(); // now to clear buffer
@@ -450,7 +450,7 @@ impl VoiceEventHandler for Receiver {
                             end: audio_range,
                         };
                         let mut buf = self.encoded_audio_buffer.write().await;
-                        let mut b = match buf.get_mut(&packet.ssrc) {
+                        let b = match buf.get_mut(&packet.ssrc) {
                             Some(b) => b,
                             None => {
                                 return None;
@@ -502,7 +502,7 @@ impl VoiceEventHandler for Receiver {
                 // voice channel e.g., finalise processing of statistics etc.
                 // You will typically need to map the User ID to their SSRC; observed when
                 // speaking or connecting.
-                let mut key: Option<u32> = {
+                let key: Option<u32> = {
                     let map = self.ssrc_map.read().await;
                     let mut id: Option<u32> = None;
                     for i in map.iter() {

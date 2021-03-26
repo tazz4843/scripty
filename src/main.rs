@@ -4,8 +4,7 @@ use serenity::{
     Client,
 };
 
-use scripty::globals::{set_model, set_redis, RedisClientWrapper, RedisConnectionWrapper};
-use scripty::utils::ModelWrapper;
+use scripty::globals::{set_redis, RedisClientWrapper, RedisConnectionWrapper};
 use scripty::{
     cmd_error,
     cmd_help::CMD_HELP,
@@ -48,8 +47,6 @@ async fn main() {
     let db = set_db().await;
 
     let (client, conn) = set_redis().await;
-
-    let ds_model = set_model().await;
 
     // Here, we need to configure Songbird to decode all incoming voice packets.
     // If you want, you can do this on a per-call basis---here, we need it to
@@ -108,7 +105,6 @@ async fn main() {
         .type_map_insert::<SqlitePoolKey>(db)
         .type_map_insert::<RedisClientWrapper>(client)
         .type_map_insert::<RedisConnectionWrapper>(Arc::new(RwLock::new(conn)))
-        .type_map_insert::<ModelWrapper>(Arc::new(RwLock::new(ds_model))) // preferably we only load the 1/2gb model once
         .framework(framework)
         .register_songbird_with(songbird.into())
         .await

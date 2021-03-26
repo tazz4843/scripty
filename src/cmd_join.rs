@@ -11,7 +11,6 @@ use serenity::framework::standard::Args;
 use serenity::model::channel::{Channel, ChannelType};
 use serenity::model::id::ChannelId;
 use songbird::CoreEvent;
-use std::future::Future;
 
 #[command("join")]
 #[required_permissions("MANAGE_GUILD")]
@@ -38,7 +37,8 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
         None => match connect_to.to_channel(&ctx).await {
             Ok(c) => c,
             Err(e) => {
-                msg.channel_id
+                let _ = msg
+                    .channel_id
                     .say(&ctx, format!("I can't convert that to a channel. {:?}", e))
                     .await;
                 return Ok(());
@@ -48,14 +48,16 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
         Channel::Guild(c) => match c.kind {
             ChannelType::Voice => {}
             _ => {
-                msg.channel_id
+                let _ = msg
+                    .channel_id
                     .say(&ctx, "This isn't a voice channel! Try again.")
                     .await;
                 return Ok(());
             }
         },
         _ => {
-            msg.channel_id
+            let _ = msg
+                .channel_id
                 .say(&ctx, "This isn't a voice channel! Try again.")
                 .await;
             return Ok(());

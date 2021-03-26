@@ -26,6 +26,7 @@ deepspeech = "0.9"
 audrey = "*"
 dasp_interpolate = { version = "*", features = ["linear"] }
 dasp_signal = "*"
+num_cpus = "1.13"
 
 [dependencies.redis]
 version = "*"

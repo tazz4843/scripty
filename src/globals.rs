@@ -2,7 +2,7 @@ use std::{convert::TryFrom, fs, io};
 
 use deepspeech::Model;
 use once_cell::sync::OnceCell;
-use redis::{aio::Connection, AsyncCommands, Client};
+use redis::{aio::Connection, Client};
 use serde::Deserialize;
 use serenity::{http::client::Http, model::id::UserId, prelude::TypeMapKey};
 use sqlx::{query, sqlite::SqliteConnectOptions, SqlitePool};
@@ -34,7 +34,11 @@ github = \"https://github.com/USER NAME HERE/REPO NAME HERE\"
 colour = 11771355
 
 # Full URI to your Redis instance
-redis_uri = \"redis:///localhost\"";
+redis_uri = \"redis:///localhost\"
+
+# Full path to the DeepSpeech model and scorer.
+deepspeech_path = \"/home/user/deepspeech\"
+";
 
 /// The struct to implement TypeMapKey for, use this to get the SqlitePool from `ctx.data`
 pub struct SqlitePoolKey;
@@ -204,7 +208,7 @@ impl BotConfig {
                     ));
                     panic!("Created the default config, edit it and restart please");
                 } else {
-                    panic!(err)
+                    panic!("{}", err)
                 }
             }))
             .expect("Looks like something is wrong with your config");
