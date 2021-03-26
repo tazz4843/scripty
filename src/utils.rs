@@ -9,7 +9,8 @@ use songbird::model::payload::{ClientConnect, ClientDisconnect, Speaking};
 use songbird::Event;
 use songbird::{EventContext, EventHandler as VoiceEventHandler};
 use std::collections::HashMap;
-use std::process::Stdio;
+use std::io::Error;
+use std::process::{ExitStatus, Stdio};
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
@@ -235,38 +236,30 @@ impl VoiceEventHandler for Receiver {
                 // or stopping speaking.
                 let uid: u64 = {
                     let map = self.ssrc_map.read().await;
-                    match map.get(&ssrc) {
+                    match map.get(ssrc) {
                         Some(u) => u.to_string().parse().unwrap(),
                         None => 0,
                     }
                 };
-                if *speaking {
-                    // user started speaking, reset buffer if not already
-                    self.audio_buffer.write().await.clear();
-                    self.encoded_audio_buffer.write().await.clear();
-                } else {
+                if !*speaking {
                     match DECODE_TYPE {
                         DecodeMode::Decrypt => {
                             // all of this code reeks of https://www.youtube.com/watch?v=lIFE7h3m40U
-                            println!("Decode mode is DecodeMode::Decrypt");
                             let audio = {
                                 let mut buf = self.encoded_audio_buffer.write().await;
-                                match buf.remove(ssrc) {
-                                    Some(a) => {
-                                        buf.insert(*ssrc, Vec::new());
-                                        a
-                                    }
+                                match buf.insert(*ssrc, Vec::new()) {
+                                    Some(a) => a,
                                     None => {
                                         println!(
                                             "Didn't find a user with SSRC {} in the audio buffers.",
                                             ssrc
                                         );
-                                        buf.insert(*ssrc, Vec::new());
                                         return None;
                                     }
                                 }
                             };
                             let file_id = Uuid::new_v4();
+                            let file_path = format!("{}.wav", file_id.as_u128());
 
                             /*
                             match OpenOptions::new()
@@ -298,7 +291,7 @@ impl VoiceEventHandler for Receiver {
                                 "pcm_s16le",
                                 "-i",
                                 "-",
-                                &format!("{}.wav", file_id.as_u128()),
+                                &file_path,
                             ];
 
                             let mut child = match Command::new("ffmpeg")
@@ -332,24 +325,34 @@ impl VoiceEventHandler for Receiver {
                                     return None;
                                 }
                             };
-                            // we now have a file named "{}.pcm" where {} is the user's SSRC.
+                            // we now have a file named "{}.wav" where {} is the user's SSRC.
                             // at this point we shouldn't do anything more in this function to avoid blocking too long.
                             // we've already done what cannot be done in another function, which is getting the actual audio
                             // so we spawn a background thread to do the rest, and return from this function.
                             tokio::spawn(async move {
                                 // this one line ^ is why the entire bot needs nightly Rust
-                                let _ = child.wait().await;
-                                let stt_result =
-                                    run_stt(format!("{}.wav", file_id.as_u128())).await;
-                                match stt_result {
+                                match child.wait().await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        println!("FFMPEG failed! {}", e);
+                                        return None;
+                                    }
+                                };
+                                match run_stt(file_path.clone()).await {
                                     Ok(r) => {
                                         println!("{}", r);
                                     }
                                     Err(e) => {
                                         println!("Failed to run speech-to-text! {}", e);
                                     }
-                                }
-                            }); // TODO: actually implement the DeepSpeech lib!
+                                };
+                                match tokio::fs::remove_file(&file_path).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        println!("Failed to delete {}! {}", &file_path, e);
+                                    }
+                                };
+                            });
                         }
                         DecodeMode::Decode => {
                             println!("Decode mode is DecodeMode::Decode");

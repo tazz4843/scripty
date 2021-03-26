@@ -25,7 +25,7 @@ pub async fn run_stt(audio_file_path: String) -> Result<String, DeepspeechError>
         let model_dir_str = BotConfig::get()
             .expect("Failed to load config!")
             .model_path();
-        let dir_path = Path::new(&model_dir_str);
+        let dir_path = Path::new(model_dir_str);
         let mut graph_name: Box<Path> = dir_path.join("output_graph.pb").into_boxed_path();
         let mut scorer_name: Option<Box<Path>> = None;
         // search for model in model directory
