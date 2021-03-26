@@ -289,7 +289,7 @@ impl VoiceEventHandler for Receiver {
                                 "-ac",
                                 "2",
                                 "-acodec",
-                                "pcm_s16le",
+                                "libopus",
                                 "-i",
                                 "-",
                                 &format!("{}.wav", file_id.as_u128()),
