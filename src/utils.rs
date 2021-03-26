@@ -293,7 +293,7 @@ impl VoiceEventHandler for Receiver {
                                 "-ar",
                                 "8000",
                                 "-ac",
-                                "2",
+                                "1",
                                 "-acodec",
                                 "pcm_s16le",
                                 "-i",
