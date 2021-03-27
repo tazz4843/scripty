@@ -54,7 +54,8 @@ async fn main() {
     let (client, conn) = set_redis().await;
     println!("Connected to Redis!");
 
-    println!("Initializing Songbird...");
+    let client_init_start = std::time::SystemTime::now();
+    println!("Initializing client...");
     // Here, we need to configure Songbird to decode all incoming voice packets.
     // If you want, you can do this on a per-call basis---here, we need it to
     // read the audio data that other people are sending us!
@@ -64,9 +65,7 @@ async fn main() {
             .decode_mode(DECODE_TYPE.clone())
             .crypto_mode(songbird::driver::CryptoMode::Normal),
     );
-    println!("Initialized Songbird!");
 
-    println!("Initializing framework...");
     let framework = StandardFramework::new()
         .configure(|c| {
             c.prefix("~")
@@ -99,9 +98,7 @@ async fn main() {
         .group(&VOICE_GROUP)
         .group(&CONFIG_GROUP)
         .group(&MASTER_GROUP);
-    println!("Initialized framework!");
 
-    println!("Initializing client...");
     let mut client = Client::builder(&config.token())
         .intents(
             GatewayIntents::GUILD_MESSAGES
@@ -120,14 +117,17 @@ async fn main() {
         .register_songbird_with(songbird.into())
         .await
         .expect("Couldn't create the client");
-    println!("Initialized client!");
-
-    println!("Initializing client TypeMap...");
     {
         let mut data = client.data.write().await;
         data.insert::<ShardManagerWrapper>(Arc::new(RwLock::new(client.shard_manager.clone())))
     }
-    println!("Initialized client TypeMap...");
+    println!(
+        "Initialized client in {}ms!",
+        client_init_start
+            .elapsed()
+            .expect("System clock rolled back!")
+            .as_millis()
+    );
 
     println!("Starting client...");
     if let Err(e) = client.start_autosharded().await {
