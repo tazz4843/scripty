@@ -129,7 +129,7 @@ async fn main() {
     }
     println!("Initialized client TypeMap...");
 
-    println!("Starting client...")
+    println!("Starting client...");
     if let Err(e) = client.start_autosharded().await {
         print_and_write(format!("Couldn't start the client: {}", e));
     }
