@@ -109,6 +109,7 @@ async fn main() {
         )
         .event_handler(Handler {
             is_loop_running: AtomicBool::new(false),
+            start_time: client_init_start.clone(),
         })
         .type_map_insert::<SqlitePoolKey>(db)
         .type_map_insert::<RedisClientWrapper>(client)

@@ -23,6 +23,7 @@ use crate::{
 };
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::SystemTime;
 use tokio::time::Duration;
 
 /// The module for error handling of the commands
@@ -79,6 +80,7 @@ struct Config;
 /// The event handler struct to implement EventHandler for
 pub struct Handler {
     pub is_loop_running: AtomicBool,
+    pub start_time: SystemTime,
 }
 #[serenity::async_trait]
 /// The implementation you should add your own event handling functions to
