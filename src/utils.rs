@@ -332,25 +332,22 @@ impl VoiceEventHandler for Receiver {
                             tokio::spawn(async move {
                                 // this one line ^ is why the entire bot needs nightly Rust
                                 match child.wait().await {
-                                    Ok(_) => {}
+                                    Ok(_) => {
+                                        match run_stt(file_path.clone()).await {
+                                            Ok(r) => {
+                                                println!("{}", r);
+                                            }
+                                            Err(e) => {
+                                                println!("Failed to run speech-to-text! {}", e);
+                                            }
+                                        };
+                                    }
                                     Err(e) => {
                                         println!("FFMPEG failed! {}", e);
-                                        return ();
                                     }
                                 };
-                                match run_stt(file_path.clone()).await {
-                                    Ok(r) => {
-                                        println!("{}", r);
-                                    }
-                                    Err(e) => {
-                                        println!("Failed to run speech-to-text! {}", e);
-                                    }
-                                };
-                                match tokio::fs::remove_file(&file_path).await {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        println!("Failed to delete {}! {}", &file_path, e);
-                                    }
+                                if let Err(e) = tokio::fs::remove_file(&file_path).await {
+                                    println!("Failed to delete {}! {}", &file_path, e);
                                 };
                                 ()
                             });

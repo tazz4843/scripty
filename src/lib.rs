@@ -135,6 +135,7 @@ impl EventHandler for Handler {
     /// Triggered when the bot or a new shard is ready
     /// - Sets the activity of the bot to `@{bot username} help`
     async fn ready(&self, ctx: Context, info: Ready) {
+        println!("Started client!");
         ctx.set_activity(Activity::playing(
             format!("@{} help", info.user.name).as_str(),
         ))

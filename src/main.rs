@@ -36,18 +36,25 @@ use tokio::sync::RwLock;
 async fn main() {
     set_dir();
 
+    println!("Loading config...");
     BotConfig::set("config.toml");
     let config = BotConfig::get().expect("Couldn't access BOT_CONFIG to get the token");
+    println!("Loaded config!");
 
     BotInfo::set(config.token()).await;
     let bot_info = BotInfo::get().expect("Couldn't access BOT_INFO to get the owner and bot ID");
 
     CmdInfo::set();
 
+    println!("Loading DB...");
     let db = set_db().await;
+    println!("Loaded DB!");
 
+    println!("Connecting to Redis...");
     let (client, conn) = set_redis().await;
+    println!("Connected to Redis!");
 
+    println!("Initializing Songbird...");
     // Here, we need to configure Songbird to decode all incoming voice packets.
     // If you want, you can do this on a per-call basis---here, we need it to
     // read the audio data that other people are sending us!
@@ -57,7 +64,9 @@ async fn main() {
             .decode_mode(DECODE_TYPE.clone())
             .crypto_mode(songbird::driver::CryptoMode::Normal),
     );
+    println!("Initialized Songbird!");
 
+    println!("Initializing framework...");
     let framework = StandardFramework::new()
         .configure(|c| {
             c.prefix("~")
@@ -90,7 +99,9 @@ async fn main() {
         .group(&VOICE_GROUP)
         .group(&CONFIG_GROUP)
         .group(&MASTER_GROUP);
+    println!("Initialized framework!");
 
+    println!("Initializing client...");
     let mut client = Client::builder(&config.token())
         .intents(
             GatewayIntents::GUILD_MESSAGES
@@ -109,12 +120,16 @@ async fn main() {
         .register_songbird_with(songbird.into())
         .await
         .expect("Couldn't create the client");
+    println!("Initialized client!");
 
+    println!("Initializing client TypeMap...");
     {
         let mut data = client.data.write().await;
         data.insert::<ShardManagerWrapper>(Arc::new(RwLock::new(client.shard_manager.clone())))
     }
+    println!("Initialized client TypeMap...");
 
+    println!("Starting client...")
     if let Err(e) = client.start_autosharded().await {
         print_and_write(format!("Couldn't start the client: {}", e));
     }
