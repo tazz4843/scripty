@@ -7,9 +7,9 @@ use std::{
     io::Write,
     sync::{
         atomic::{AtomicBool, Ordering},
-        time::SystemTime,
         Arc,
     },
+    time::SystemTime,
 };
 
 use serenity::{
