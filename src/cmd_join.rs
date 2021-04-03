@@ -7,9 +7,10 @@ use serenity::{
     },
     prelude::Mentionable,
 };
-
-use crate::{globals::RedisConnectionWrapper, log, utils::Receiver};
 use songbird::CoreEvent;
+
+use crate::handlers::audio::Receiver;
+use crate::{globals::RedisConnectionWrapper, log};
 
 #[command("join")]
 #[required_permissions("MANAGE_GUILD")]

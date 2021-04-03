@@ -1,9 +1,17 @@
+use std::sync::{atomic::AtomicBool, Arc};
+
 use serenity::{
     client::bridge::gateway::GatewayIntents,
     framework::{standard::buckets::LimitedFor, StandardFramework},
     Client,
 };
+use songbird::{
+    driver::{Config as DriverConfig, CryptoMode},
+    SerenityInit, Songbird,
+};
+use tokio::sync::RwLock;
 
+use scripty::handlers::bot::Handler;
 use scripty::{
     cmd_error,
     cmd_help::CMD_HELP,
@@ -14,14 +22,8 @@ use scripty::{
     },
     print_and_write, set_dir,
     utils::{ShardManagerWrapper, DECODE_TYPE},
-    Handler, CONFIG_GROUP, GENERAL_GROUP, MASTER_GROUP, UTILS_GROUP, VOICE_GROUP,
+    CONFIG_GROUP, GENERAL_GROUP, MASTER_GROUP, UTILS_GROUP, VOICE_GROUP,
 };
-use songbird::{
-    driver::{Config as DriverConfig, CryptoMode},
-    SerenityInit, Songbird,
-};
-use std::sync::{atomic::AtomicBool, Arc};
-use tokio::sync::RwLock;
 
 /// You should add your own requirements to get the bot started here
 /// 1. Sets every global
