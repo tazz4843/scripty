@@ -7,6 +7,7 @@ use std::{
 };
 
 use serenity::{
+    async_trait,
     client::{Context, EventHandler},
     model::{
         gateway::{Activity, Ready},
@@ -22,7 +23,7 @@ pub struct Handler {
     pub start_time: SystemTime,
 }
 
-#[serenity::async_trait]
+#[async_trait]
 /// The implementation you should add your own event handling functions to
 impl EventHandler for Handler {
     /// Triggered when the bot is ready or added to a guild

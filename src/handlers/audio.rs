@@ -1,11 +1,17 @@
-use std::collections::HashMap;
-use std::marker::PhantomData;
-use std::sync::Arc;
-
-use redis::aio::Connection;
+use crate::{deepspeech::run_stt, utils::DECODE_TYPE};
+use redis::{aio::Connection, AsyncCommands};
 use serenity::{async_trait, prelude::RwLock};
-use songbird::model::id::UserId;
-use songbird::{Event, EventContext, EventHandler as VoiceEventHandler};
+use songbird::{
+    driver::DecodeMode,
+    model::{
+        id::UserId,
+        payload::{ClientConnect, ClientDisconnect, Speaking},
+    },
+    Event, EventContext, EventHandler as VoiceEventHandler,
+};
+use std::{collections::HashMap, marker::PhantomData, process::Stdio, sync::Arc};
+use tokio::{io::AsyncWriteExt, process::Command};
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct Receiver<'a> {
@@ -38,16 +44,7 @@ impl VoiceEventHandler for Receiver<'_> {
     //noinspection SpellCheckingInspection
     #[allow(unused_variables)]
     async fn act<'b>(&'b self, ctx: &EventContext<'_>) -> Option<Event> {
-        use crate::deepspeech::run_stt;
-        use crate::utils::DECODE_TYPE;
-        use redis::AsyncCommands;
-        use sentry::types::Uuid;
-        use songbird::driver::DecodeMode;
-        use songbird::model::payload::{ClientConnect, ClientDisconnect, Speaking};
         use songbird::EventContext as Ctx;
-        use std::process::Stdio;
-        use tokio::io::AsyncWriteExt;
-        use tokio::process::Command;
 
         match ctx {
             Ctx::SpeakingStateUpdate(Speaking {
