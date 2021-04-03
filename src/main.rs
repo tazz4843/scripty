@@ -14,6 +14,7 @@ use scripty::{
     utils::{ShardManagerWrapper, DECODE_TYPE},
     Handler, CONFIG_GROUP, GENERAL_GROUP, MASTER_GROUP, UTILS_GROUP, VOICE_GROUP,
 };
+use songbird::driver::CryptoMode;
 use songbird::{
     driver::Config as DriverConfig,
     {SerenityInit, Songbird},
@@ -62,8 +63,8 @@ async fn main() {
     let songbird = Songbird::serenity();
     songbird.set_config(
         DriverConfig::default()
-            .decode_mode(DECODE_TYPE.clone())
-            .crypto_mode(songbird::driver::CryptoMode::Normal),
+            .decode_mode(DECODE_TYPE)
+            .crypto_mode(CryptoMode::Normal),
     );
 
     let framework = StandardFramework::new()
@@ -109,13 +110,13 @@ async fn main() {
         )
         .event_handler(Handler {
             is_loop_running: AtomicBool::new(false),
-            start_time: client_init_start.clone(),
+            start_time: client_init_start,
         })
         .type_map_insert::<SqlitePoolKey>(db)
         .type_map_insert::<RedisClientWrapper>(client)
         .type_map_insert::<RedisConnectionWrapper>(Arc::new(RwLock::new(conn)))
         .framework(framework)
-        .register_songbird_with(songbird.into())
+        .register_songbird_with(songbird)
         .await
         .expect("Couldn't create the client");
     {

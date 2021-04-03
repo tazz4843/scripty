@@ -47,16 +47,16 @@ async fn cmd_prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let prefix = args.rest().trim();
     let guild_id = msg.guild_id;
 
-    if let None = guild_id {
+    if guild_id.is_none() {
         log(ctx, "msg.guild_id is None for the prefix command").await;
         embed
             .title("Something weird happened and I let you use this command in DMs")
             .description("We have to be in a guild to set the prefix for a guild, no?");
     };
-    if let None = db {
+    if db.is_none() {
         log(
             ctx,
-            format!("Couldn't get SqlitePool for the prefix command"),
+            "Couldn't get SqlitePool for the prefix command".to_string(),
         )
         .await;
         embed
@@ -69,30 +69,26 @@ async fn cmd_prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             embed
                 .title("Your prefix can't be longer than 10 characters")
                 .description("Why would you want it that long anyway..");
-        } else {
-            if let Err(err) = query(
-                "INSERT OR REPLACE INTO prefixes (guild_id, prefix)
+        } else if let Err(err) = query(
+            "INSERT OR REPLACE INTO prefixes (guild_id, prefix)
                 VALUES(?, ?);",
-            )
-            .bind(guild_id.0 as i64)
-            .bind(prefix)
-            .execute(db)
-            .await
-            {
-                log(ctx, format!("Couldn't insert to prefixes: {}", err)).await;
-                embed
-                    .title("Ugh, I couldn't write that down..")
-                    .description(
-                        "I just let my developer know, until then you could just try again",
-                    );
+        )
+        .bind(guild_id.0 as i64)
+        .bind(prefix)
+        .execute(db)
+        .await
+        {
+            log(ctx, format!("Couldn't insert to prefixes: {}", err)).await;
+            embed
+                .title("Ugh, I couldn't write that down..")
+                .description("I just let my developer know, until then you could just try again");
+        } else {
+            is_error = false;
+            embed.description(if !prefix.is_empty() {
+                format!("Voila! My prefix here is now `{}`", prefix)
             } else {
-                is_error = false;
-                embed.description(if prefix != "" {
-                    format!("Voila! My prefix here is now `{}`", prefix)
-                } else {
-                    "Yay! I don't even need a prefix here anymore".to_string()
-                });
-            }
+                "Yay! I don't even need a prefix here anymore".to_string()
+            });
         }
     }
 
@@ -122,7 +118,7 @@ pub async fn prefix_check(ctx: &Context, msg: &Message) -> Option<String> {
     let mut is_cmd = false;
     for cmd in cmd_info.cmds().iter() {
         if content.contains(cmd) {
-            if content.starts_with(".") && cmd_info.custom_cmds().contains(cmd) {
+            if content.starts_with('.') && cmd_info.custom_cmds().contains(cmd) {
                 return Some(".".to_string());
             }
             is_cmd = true;

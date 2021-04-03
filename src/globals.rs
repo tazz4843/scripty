@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// The default config to be written when creating a config file
-const DEFAULT_CONFIG: &'static str =
+const DEFAULT_CONFIG: &str =
     "# The token of the bot: https://discordpy.readthedocs.io/en/latest/discord.html#creating-a-bot-account
 token = \"TOKEN HERE\"
 
@@ -142,16 +142,15 @@ pub async fn set_model() -> Model {
     for file in dir_path
         .read_dir()
         .expect("Specified model dir is not a dir")
+        .flatten()
     {
-        if let Ok(f) = file {
-            let file_path = f.path();
-            if file_path.is_file() {
-                if let Some(ext) = file_path.extension() {
-                    if ext == "pb" || ext == "pbmm" {
-                        graph_name = file_path.into_boxed_path();
-                    } else if ext == "scorer" {
-                        scorer_name = Some(file_path.into_boxed_path());
-                    }
+        let file_path = file.path();
+        if file_path.is_file() {
+            if let Some(ext) = file_path.extension() {
+                if ext == "pb" || ext == "pbmm" {
+                    graph_name = file_path.into_boxed_path();
+                } else if ext == "scorer" {
+                    scorer_name = Some(file_path.into_boxed_path());
                 }
             }
         }
@@ -202,10 +201,12 @@ impl BotConfig {
         let config: BotConfig =
             toml::from_str(&fs::read_to_string(config_path).unwrap_or_else(|err| {
                 if err.kind() == io::ErrorKind::NotFound {
-                    fs::write(config_path, DEFAULT_CONFIG).expect(&format!(
-                        "Couldn't write the default config, write it manually please:\n{}",
-                        DEFAULT_CONFIG
-                    ));
+                    fs::write(config_path, DEFAULT_CONFIG).unwrap_or_else(|_| {
+                        panic!(
+                            "Couldn't write the default config, write it manually please:\n{}",
+                            DEFAULT_CONFIG
+                        )
+                    });
                     panic!("Created the default config, edit it and restart please");
                 } else {
                     panic!("{}", err)

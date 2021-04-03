@@ -14,10 +14,7 @@ use std::sync::Arc;
 use tokio::time::Duration;
 
 fn collector(msg: &Arc<Message>) -> bool {
-    return match u64::from_str(&*msg.content) {
-        Ok(_) => true,
-        Err(_) => false,
-    };
+    u64::from_str(&*msg.content).is_ok()
 }
 
 #[command("setup")]
@@ -34,16 +31,16 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
     let db = data.get::<SqlitePoolKey>();
     let guild_id = msg.guild_id;
 
-    if let None = guild_id {
+    if guild_id.is_none() {
         log(ctx, "msg.guild_id is None for the setup command").await;
         embed
             .title("Something weird happened and I let you use this command in DMs")
             .description("We have to be in a guild to setup the bot, no?");
     };
-    if let None = db {
+    if db.is_none() {
         log(
             ctx,
-            format!("Couldn't get SqlitePool for the setup command"),
+            "Couldn't get SqlitePool for the setup command".to_string(),
         )
         .await;
         embed
@@ -54,7 +51,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
             );
     };
 
-    if let Err(_) = msg.channel_id.say(&ctx.http, "Paste the ID of the voice chat you want me to transcript messages from.\nIf you don't know how to get the ID, see this picture: https://cdn.discordapp.com/attachments/697540103136084011/816353842823561306/copy_id.png").await {
+    if msg.channel_id.say(&ctx.http, "Paste the ID of the voice chat you want me to transcript messages from.\nIf you don't know how to get the ID, see this picture: https://cdn.discordapp.com/attachments/697540103136084011/816353842823561306/copy_id.png").await.is_err() {
         if let Err(e) = msg.author.direct_message(&ctx.http, |c| {
             c.content(format!("I failed to send a message in {}! Make sure I have permissions to send messages.", msg.channel_id.mention()))
         }).await {
@@ -82,13 +79,14 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
         None
     };
 
-    if let Err(_) = msg
+    if msg
         .channel_id
         .say(
             &ctx.http,
             "Now paste the ID of the channel you want me to send the results of transcriptions to.",
         )
         .await
+        .is_err()
     {
         if let Err(e) = msg
             .author

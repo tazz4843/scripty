@@ -32,16 +32,15 @@ pub async fn run_stt(audio_file_path: String) -> Result<String, DeepspeechError>
         for file in dir_path
             .read_dir()
             .expect("Specified model dir is not a dir")
+            .flatten()
         {
-            if let Ok(f) = file {
-                let file_path = f.path();
-                if file_path.is_file() {
-                    if let Some(ext) = file_path.extension() {
-                        if ext == "pb" || ext == "pbmm" {
-                            graph_name = file_path.into_boxed_path();
-                        } else if ext == "scorer" {
-                            scorer_name = Some(file_path.into_boxed_path());
-                        }
+            let file_path = file.path();
+            if file_path.is_file() {
+                if let Some(ext) = file_path.extension() {
+                    if ext == "pb" || ext == "pbmm" {
+                        graph_name = file_path.into_boxed_path();
+                    } else if ext == "scorer" {
+                        scorer_name = Some(file_path.into_boxed_path());
                     }
                 }
             }

@@ -33,7 +33,8 @@ version = "*"
 features = ["aio", "connection-manager", "tokio-comp"]
 
 [dependencies.serenity]
-version = "0.10"
+path = "/home/dustin/serenity-test/serenity/"
+# version = "0.10"
 features = ["client", "standard_framework", "voice", "rustls_backend", "framework", "cache", "collector"]
 
 [dependencies.tokio]
@@ -47,3 +48,6 @@ features = ["derive"]
 [dependencies.sqlx]
 version = "0.5"
 features = ["runtime-tokio-rustls", "sqlite"]
+
+[replace]
+"serenity:0.10.2" = { path = "/home/dustin/serenity-test/serenity/" }

@@ -1,4 +1,5 @@
 #![feature(async_closure)]
+#![feature(in_band_lifetimes)]
 
 use std::{env, fmt::Display, io::Write};
 
@@ -248,7 +249,8 @@ pub fn print_and_write(msg: impl Display) {
     let log_file = match BotConfig::get() {
         Some(config) => config.log_file(),
         None => {
-            print_and_write += "Writing into a file named \"discord-base logs.txt\" because getting BOT_CONFIG also failed\n\n";
+            print_and_write += "Writing into a file named \"discord-base logs.txt\" \
+            because getting BOT_CONFIG also failed\n\n";
             "discord-base logs.txt"
         }
     };

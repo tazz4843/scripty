@@ -1,4 +1,5 @@
 use crate::deepspeech::run_stt;
+use redis::{aio::Connection, AsyncCommands};
 use serenity::async_trait;
 use serenity::client::bridge::gateway::ShardManager;
 use serenity::model::id::{ChannelId, MessageId};
@@ -9,8 +10,8 @@ use songbird::model::payload::{ClientConnect, ClientDisconnect, Speaking};
 use songbird::Event;
 use songbird::{EventContext, EventHandler as VoiceEventHandler};
 use std::collections::HashMap;
-use std::io::Error;
-use std::process::{ExitStatus, Stdio};
+use std::marker::PhantomData;
+use std::process::Stdio;
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
@@ -47,21 +48,16 @@ pub async fn get_avg_ws_latency(ctx: ContextTypes<'_>) -> (u128, u8) {
     let mut total: u8 = 0;
     let mut latency: u128 = 0;
     for i in shard_manager.runners.lock().await.iter() {
-        match i.1.latency {
-            Some(l) => {
-                total += 1;
-                latency += l.as_millis();
-            }
-            None => {
-                // ignore if no latency available
-            }
+        if let Some(l) = i.1.latency {
+            total += 1;
+            latency += l.as_millis();
         }
     }
     if total == 0 {
         // no shards ready
         latency = 0
     } else {
-        latency = latency / total as u128; // scales to a arbitrary number of shards well
+        latency /= total as u128; // scales to a arbitrary number of shards well
     }
     (latency, total)
 }
@@ -69,11 +65,11 @@ pub async fn get_avg_ws_latency(ctx: ContextTypes<'_>) -> (u128, u8) {
 pub async fn do_stats_update(ctx: Arc<Context>) {
     let shard_info = get_avg_ws_latency(ContextTypes::WithArc(&ctx)).await;
 
-    ctx.cache.set_max_messages(0 as usize).await;
+    ctx.cache.set_max_messages(0_usize).await;
     let status_channel = ChannelId(791426352217587732);
     match status_channel
         .messages(&ctx.http, |retriever| {
-            retriever.after(MessageId(0 as u64)).limit(25)
+            retriever.after(MessageId(0_u64)).limit(25)
         })
         .await
     {
@@ -102,13 +98,8 @@ pub async fn do_stats_update(ctx: Arc<Context>) {
     let user_count = {
         let mut c: u64 = 0;
         for g in ctx.cache.guilds().await {
-            match g.to_guild_cached(&ctx).await {
-                Some(gc) => {
-                    c += gc.member_count;
-                }
-                None => {
-                    c += 0 as u64;
-                }
+            if let Some(gc) = g.to_guild_cached(&ctx).await {
+                c += gc.member_count;
             }
         }
         c
@@ -116,7 +107,7 @@ pub async fn do_stats_update(ctx: Arc<Context>) {
     let avg_ws_latency = if shard_info.0 == 0 {
         "NaN".to_string()
     } else {
-        format!("{}", shard_info.0)
+        shard_info.0.to_string()
     };
 
     if let Err(e) = status_channel
@@ -149,14 +140,16 @@ pub async fn do_stats_update(ctx: Arc<Context>) {
 }
 
 #[derive(Clone)]
-pub struct Receiver {
+pub struct Receiver<'a> {
     ssrc_map: Arc<RwLock<HashMap<u32, UserId>>>,
     audio_buffer: Arc<RwLock<HashMap<u32, Vec<i16>>>>,
     encoded_audio_buffer: Arc<RwLock<HashMap<u32, Vec<u8>>>>,
+    redis: Arc<RwLock<Connection>>,
+    phantom: PhantomData<&'a ()>,
 }
 
-impl Receiver {
-    pub fn new() -> Self {
+impl Receiver<'a> {
+    pub fn new(redis: Arc<RwLock<Connection>>) -> Self {
         // You can manage state here, such as a buffer of audio packet bytes so
         // you can later store them in intervals.
         let ssrc_map = Arc::new(RwLock::new(HashMap::new()));
@@ -166,15 +159,17 @@ impl Receiver {
             ssrc_map,
             audio_buffer,
             encoded_audio_buffer,
+            redis,
+            phantom: PhantomData,
         }
     }
 }
 
 #[async_trait]
-impl VoiceEventHandler for Receiver {
+impl VoiceEventHandler for Receiver<'_> {
     //noinspection SpellCheckingInspection
     #[allow(unused_variables)]
-    async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
+    async fn act<'b>(&'b self, ctx: &EventContext<'_>) -> Option<Event> {
         use EventContext as Ctx;
 
         match ctx {
@@ -325,32 +320,26 @@ impl VoiceEventHandler for Receiver {
                                     return None;
                                 }
                             };
-                            // we now have a file named "{}.wav" where {} is the user's SSRC.
-                            // at this point we shouldn't do anything more in this function to avoid blocking too long.
-                            // we've already done what cannot be done in another function, which is getting the actual audio
-                            // so we spawn a background thread to do the rest, and return from this function.
-                            tokio::spawn(async move {
-                                // this one line ^ is why the entire bot needs nightly Rust
-                                match child.wait().await {
-                                    Ok(_) => {
-                                        match run_stt(file_path.clone()).await {
-                                            Ok(r) => {
-                                                println!("{}", r);
-                                            }
-                                            Err(e) => {
-                                                println!("Failed to run speech-to-text! {}", e);
-                                            }
-                                        };
-                                    }
-                                    Err(e) => {
-                                        println!("FFMPEG failed! {}", e);
-                                    }
-                                };
-                                if let Err(e) = tokio::fs::remove_file(&file_path).await {
-                                    println!("Failed to delete {}! {}", &file_path, e);
-                                };
-                                ()
-                            });
+                            // we now have a file named "{}.wav" where {} is a random UUID as a 128-bit integer.
+                            let mut rd = self.redis.write().await;
+                            match child.wait().await {
+                                Ok(_) => {
+                                    match run_stt(file_path.clone()).await {
+                                        Ok(r) => {
+                                            let _ = rd.set::<u64, String, u64>(uid, r).await;
+                                        }
+                                        Err(e) => {
+                                            println!("Failed to run speech-to-text! {}", e);
+                                        }
+                                    };
+                                }
+                                Err(e) => {
+                                    println!("FFMPEG failed! {}", e);
+                                }
+                            };
+                            if let Err(e) = tokio::fs::remove_file(&file_path).await {
+                                println!("Failed to delete {}! {}", &file_path, e);
+                            };
                         }
                         DecodeMode::Decode => {
                             println!("Decode mode is DecodeMode::Decode");
@@ -464,12 +453,11 @@ impl VoiceEventHandler for Receiver {
                         let mut counter: i64 = -1;
                         for i in &packet.payload {
                             counter += 1;
-                            if counter <= *payload_offset as i64 {
-                                continue;
-                            } else if counter > *audio_range as i64 {
+                            if (counter <= *payload_offset as i64) | (counter > *audio_range as i64)
+                            {
                                 continue;
                             } else {
-                                b.push(i.clone())
+                                b.push(*i)
                             }
                         }
                     }

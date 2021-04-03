@@ -5,6 +5,7 @@ use serenity::{
     prelude::Mentionable,
 };
 
+use crate::globals::RedisConnectionWrapper;
 use crate::log;
 use crate::utils::Receiver;
 use serenity::framework::standard::Args;
@@ -47,6 +48,7 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
     } {
         Channel::Guild(c) => match c.kind {
             ChannelType::Voice => {}
+            ChannelType::Stage => {}
             _ => {
                 let _ = msg
                     .channel_id
@@ -82,47 +84,56 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
 
     let (handler_lock, conn_result) = manager.join(guild_id, connect_to).await;
 
-    if let Ok(_) = conn_result {
-        // NOTE: this skips listening for the actual connection result.
-        let mut handler = handler_lock.lock().await;
+    match conn_result {
+        Ok(_) => {
+            // NOTE: this skips listening for the actual connection result.
+            let mut handler = handler_lock.lock().await;
 
-        let receiver = Receiver::new();
+            let tm = ctx.data.read().await;
 
-        if let Err(e) = handler.mute(true).await {
+            let redis_conn = tm
+                .get::<RedisConnectionWrapper>()
+                .expect("Redis connection handle placed in at initialization.");
+
+            let receiver = Receiver::new(redis_conn.clone());
+
+            if let Err(e) = handler.mute(true).await {
+                if let Err(e) = msg
+                    .channel_id
+                    .say(
+                        &ctx.http,
+                        &format!(
+                            "Failed to mute myself! You can mute me if you desire.\nReason: {:?}",
+                            e
+                        ),
+                    )
+                    .await
+                {
+                    log(ctx, format!("Failed to send message! {:?}", e)).await;
+                };
+            };
+            handler.add_global_event(CoreEvent::SpeakingStateUpdate.into(), receiver.clone());
+            handler.add_global_event(CoreEvent::SpeakingUpdate.into(), receiver.clone());
+            handler.add_global_event(CoreEvent::VoicePacket.into(), receiver.clone());
+            handler.add_global_event(CoreEvent::ClientConnect.into(), receiver.clone());
+            handler.add_global_event(CoreEvent::ClientDisconnect.into(), receiver.clone());
+
             if let Err(e) = msg
                 .channel_id
-                .say(
-                    &ctx.http,
-                    &format!(
-                        "Failed to mute myself! You can mute me if you desire.\nReason: {:?}",
-                        e
-                    ),
-                )
+                .say(&ctx.http, &format!("Joined {}", connect_to.mention()))
                 .await
             {
-                log(ctx, format!("Failed to send message! {:?}", e)).await;
-            };
-        };
-        handler.add_global_event(CoreEvent::SpeakingStateUpdate.into(), receiver.clone());
-        handler.add_global_event(CoreEvent::SpeakingUpdate.into(), receiver.clone());
-        handler.add_global_event(CoreEvent::VoicePacket.into(), receiver.clone());
-        handler.add_global_event(CoreEvent::ClientConnect.into(), receiver.clone());
-        handler.add_global_event(CoreEvent::ClientDisconnect.into(), receiver.clone());
-
-        if let Err(e) = msg
-            .channel_id
-            .say(&ctx.http, &format!("Joined {}", connect_to.mention()))
-            .await
-        {
-            log(ctx, format!("Failed to send message! {:?}", e)).await
+                log(ctx, format!("Failed to send message! {:?}", e)).await
+            }
         }
-    } else {
-        if let Err(e) = msg
-            .channel_id
-            .say(&ctx.http, "Error joining the channel")
-            .await
-        {
-            log(ctx, format!("Failed to send message! {:?}", e)).await
+        Err(e) => {
+            if let Err(e) = msg
+                .channel_id
+                .say(&ctx.http, format!("Error joining the channel: {}", e))
+                .await
+            {
+                log(ctx, format!("Failed to send message! {:?}", e)).await
+            }
         }
     }
 
