@@ -1,7 +1,16 @@
 #![feature(async_closure)]
 #![feature(in_band_lifetimes)]
 
-use std::{env, fmt::Display, io::Write};
+use std::{
+    env,
+    fmt::Display,
+    io::Write,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        time::SystemTime,
+        Arc,
+    },
+};
 
 use serenity::{
     builder::CreateEmbed,
@@ -15,16 +24,16 @@ use serenity::{
     },
 };
 
-use globals::{BotConfig, BotInfo};
-
-use crate::utils::do_stats_update;
 use crate::{
-    cmd_info::CMD_INFO_COMMAND, cmd_join::CMD_JOIN_COMMAND, cmd_ping::CMD_PING_COMMAND,
-    cmd_prefix::CMD_PREFIX_COMMAND, cmd_setup::CMD_SETUP_COMMAND, cmd_status::CMD_STATUS_COMMAND,
+    cmd_info::CMD_INFO_COMMAND,
+    cmd_join::CMD_JOIN_COMMAND,
+    cmd_ping::CMD_PING_COMMAND,
+    cmd_prefix::CMD_PREFIX_COMMAND,
+    cmd_setup::CMD_SETUP_COMMAND,
+    cmd_status::CMD_STATUS_COMMAND,
+    globals::{BotConfig, BotInfo},
+    utils::do_stats_update,
 };
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::time::SystemTime;
 use tokio::time::Duration;
 
 /// The module for error handling of the commands

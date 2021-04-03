@@ -1,16 +1,14 @@
 use serenity::{
     client::Context,
-    framework::standard::{macros::command, CommandResult},
-    model::channel::Message,
+    framework::standard::{macros::command, Args, CommandResult},
+    model::{
+        channel::{Channel, ChannelType, Message},
+        id::ChannelId,
+    },
     prelude::Mentionable,
 };
 
-use crate::globals::RedisConnectionWrapper;
-use crate::log;
-use crate::utils::Receiver;
-use serenity::framework::standard::Args;
-use serenity::model::channel::{Channel, ChannelType};
-use serenity::model::id::ChannelId;
+use crate::{globals::RedisConnectionWrapper, log, utils::Receiver};
 use songbird::CoreEvent;
 
 #[command("join")]

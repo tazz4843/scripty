@@ -1,21 +1,21 @@
 use crate::deepspeech::run_stt;
 use redis::{aio::Connection, AsyncCommands};
-use serenity::async_trait;
-use serenity::client::bridge::gateway::ShardManager;
-use serenity::model::id::{ChannelId, MessageId};
-use serenity::prelude::{Context, TypeMapKey};
-use songbird::driver::DecodeMode;
-use songbird::model::id::UserId;
-use songbird::model::payload::{ClientConnect, ClientDisconnect, Speaking};
-use songbird::Event;
-use songbird::{EventContext, EventHandler as VoiceEventHandler};
-use std::collections::HashMap;
-use std::marker::PhantomData;
-use std::process::Stdio;
-use std::sync::Arc;
-use tokio::io::AsyncWriteExt;
-use tokio::process::Command;
-use tokio::sync::RwLock;
+use serenity::{
+    async_trait,
+    client::bridge::gateway::ShardManager,
+    model::id::{ChannelId, MessageId},
+    prelude::{Context, TypeMapKey},
+};
+use songbird::{
+    driver::DecodeMode,
+    model::{
+        id::UserId,
+        payload::{ClientConnect, ClientDisconnect, Speaking},
+    },
+    Event, EventContext, EventHandler as VoiceEventHandler,
+};
+use std::{collections::HashMap, marker::PhantomData, process::Stdio, sync::Arc};
+use tokio::{io::AsyncWriteExt, process::Command, sync::RwLock};
 use uuid::Uuid;
 
 pub static DECODE_TYPE: DecodeMode = DecodeMode::Decrypt;

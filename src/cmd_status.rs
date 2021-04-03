@@ -1,8 +1,10 @@
 use crate::send_embed;
-use serenity::builder::CreateEmbed;
-use serenity::client::Context;
-use serenity::framework::standard::{macros::command, CommandResult};
-use serenity::model::channel::Message;
+use serenity::{
+    builder::CreateEmbed,
+    client::Context,
+    framework::standard::{macros::command, CommandResult},
+    model::channel::Message,
+};
 use systemstat::Platform;
 
 #[command("status")]

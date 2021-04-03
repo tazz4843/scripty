@@ -4,23 +4,23 @@ use serenity::{
     Client,
 };
 
-use scripty::globals::{set_redis, RedisClientWrapper, RedisConnectionWrapper};
 use scripty::{
     cmd_error,
     cmd_help::CMD_HELP,
     cmd_prefix::prefix_check,
-    globals::{set_db, BotConfig, BotInfo, CmdInfo, SqlitePoolKey},
+    globals::{
+        set_db, set_redis, BotConfig, BotInfo, CmdInfo, RedisClientWrapper, RedisConnectionWrapper,
+        SqlitePoolKey,
+    },
     print_and_write, set_dir,
     utils::{ShardManagerWrapper, DECODE_TYPE},
     Handler, CONFIG_GROUP, GENERAL_GROUP, MASTER_GROUP, UTILS_GROUP, VOICE_GROUP,
 };
-use songbird::driver::CryptoMode;
 use songbird::{
-    driver::Config as DriverConfig,
-    {SerenityInit, Songbird},
+    driver::{Config as DriverConfig, CryptoMode},
+    SerenityInit, Songbird,
 };
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::RwLock;
 
 /// You should add your own requirements to get the bot started here

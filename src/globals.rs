@@ -1,4 +1,4 @@
-use std::{convert::TryFrom, fs, io};
+use std::{convert::TryFrom, fs, io, path::Path, sync::Arc};
 
 use deepspeech::Model;
 use once_cell::sync::OnceCell;
@@ -6,8 +6,6 @@ use redis::{aio::Connection, Client};
 use serde::Deserialize;
 use serenity::{http::client::Http, model::id::UserId, prelude::TypeMapKey};
 use sqlx::{query, sqlite::SqliteConnectOptions, SqlitePool};
-use std::path::Path;
-use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// The default config to be written when creating a config file

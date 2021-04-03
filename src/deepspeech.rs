@@ -1,12 +1,10 @@
-use std::fs::File;
+use std::{fs::File, path::Path};
 
 use crate::globals::BotConfig;
 use audrey::read::Reader;
 use dasp_interpolate::linear::Linear;
 use dasp_signal::{from_iter, interpolate::Converter, Signal};
-use deepspeech::errors::DeepspeechError;
-use deepspeech::Model;
-use std::path::Path;
+use deepspeech::{errors::DeepspeechError, Model};
 
 // The model has been trained on this specific
 // sample rate.

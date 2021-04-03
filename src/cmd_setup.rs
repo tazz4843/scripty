@@ -4,13 +4,12 @@ use serenity::{
     collector::CollectReply,
     framework::standard::{macros::command, CommandResult},
     model::channel::Message,
+    prelude::Mentionable,
 };
 use sqlx::query;
 
 use crate::{globals::SqlitePoolKey, log, send_embed};
-use serenity::prelude::Mentionable;
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 use tokio::time::Duration;
 
 fn collector(msg: &Arc<Message>) -> bool {
