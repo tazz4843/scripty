@@ -1,15 +1,6 @@
 #![feature(async_closure)]
 #![feature(in_band_lifetimes)]
 
-use std::{env, fmt::Display, io::Write};
-
-use serenity::{
-    builder::CreateEmbed,
-    client::Context,
-    framework::standard::macros::group,
-    model::{channel::Message, misc::Mentionable},
-};
-
 use crate::{
     cmd_info::CMD_INFO_COMMAND,
     cmd_join::CMD_JOIN_COMMAND,
@@ -19,6 +10,13 @@ use crate::{
     cmd_status::CMD_STATUS_COMMAND,
     globals::{BotConfig, BotInfo},
 };
+use serenity::{
+    builder::CreateEmbed,
+    client::Context,
+    framework::standard::macros::group,
+    model::{channel::Message, misc::Mentionable},
+};
+use std::{env, fmt::Display, io::Write};
 
 /// The module for error handling of the commands
 pub mod cmd_error;

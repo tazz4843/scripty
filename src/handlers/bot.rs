@@ -1,11 +1,4 @@
-use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::{Duration, SystemTime},
-};
-
+use crate::{globals::BotConfig, utils::do_stats_update};
 use serenity::{
     async_trait,
     client::{Context, EventHandler},
@@ -14,8 +7,13 @@ use serenity::{
         id::GuildId,
     },
 };
-
-use crate::{globals::BotConfig, utils::do_stats_update};
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::{Duration, SystemTime},
+};
 
 /// The event handler struct to implement EventHandler for
 pub struct Handler {
