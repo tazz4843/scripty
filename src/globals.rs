@@ -91,7 +91,7 @@ pub async fn set_db() -> SqlitePool {
     query(
         "CREATE TABLE IF NOT EXISTS channels (
         channel_id INTEGER PRIMARY KEY,
-        webhook_token TEXT
+        webhook_token TEXT,
         webhook_id INTEGER
     ) WITHOUT ROWID",
     )
