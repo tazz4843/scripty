@@ -9,8 +9,7 @@ use serenity::{
 };
 use songbird::CoreEvent;
 
-use crate::handlers::audio::Receiver;
-use crate::{globals::RedisConnectionWrapper, log};
+use crate::{log, handlers::audio::Receiver};
 
 #[command("join")]
 #[required_permissions("MANAGE_GUILD")]
@@ -88,13 +87,7 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
             // NOTE: this skips listening for the actual connection result.
             let mut handler = handler_lock.lock().await;
 
-            let tm = ctx.data.read().await;
-
-            let redis_conn = tm
-                .get::<RedisConnectionWrapper>()
-                .expect("Redis connection handle placed in at initialization.");
-
-            let receiver = Receiver::new(redis_conn.clone());
+            let receiver = Receiver::new();
 
             if let Err(e) = handler.mute(true).await {
                 if let Err(e) = msg

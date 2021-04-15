@@ -1,5 +1,4 @@
 use crate::{deepspeech::run_stt, utils::DECODE_TYPE};
-use redis::{aio::Connection, AsyncCommands};
 use serenity::{async_trait, prelude::RwLock};
 use songbird::{
     driver::DecodeMode,
@@ -10,7 +9,7 @@ use songbird::{
     Event, EventContext, EventHandler as VoiceEventHandler,
 };
 use std::{collections::HashMap, marker::PhantomData, process::Stdio, sync::Arc};
-use tokio::{io::AsyncWriteExt, process::Command};
+use tokio::{io::AsyncWriteExt, process::Command, task};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -18,12 +17,11 @@ pub struct Receiver<'a> {
     ssrc_map: Arc<RwLock<HashMap<u32, UserId>>>,
     audio_buffer: Arc<RwLock<HashMap<u32, Vec<i16>>>>,
     encoded_audio_buffer: Arc<RwLock<HashMap<u32, Vec<u8>>>>,
-    redis: Arc<RwLock<Connection>>,
     phantom: PhantomData<&'a ()>,
 }
 
 impl Receiver<'a> {
-    pub fn new(redis: Arc<RwLock<Connection>>) -> Self {
+    pub fn new() -> Self {
         // You can manage state here, such as a buffer of audio packet bytes so
         // you can later store them in intervals.
         let ssrc_map = Arc::new(RwLock::new(HashMap::new()));
@@ -33,7 +31,6 @@ impl Receiver<'a> {
             ssrc_map,
             audio_buffer,
             encoded_audio_buffer,
-            redis,
             phantom: PhantomData,
         }
     }
@@ -195,25 +192,27 @@ impl VoiceEventHandler for Receiver<'_> {
                                 }
                             };
                             // we now have a file named "{}.wav" where {} is a random UUID as a 128-bit integer.
-                            let mut rd = self.redis.write().await;
-                            match child.wait().await {
-                                Ok(_) => {
-                                    match run_stt(file_path.clone()).await {
-                                        Ok(r) => {
-                                            let _ = rd.set::<u64, String, u64>(uid, r).await;
-                                        }
-                                        Err(e) => {
-                                            println!("Failed to run speech-to-text! {}", e);
-                                        }
-                                    };
-                                }
-                                Err(e) => {
-                                    println!("FFMPEG failed! {}", e);
-                                }
-                            };
-                            if let Err(e) = tokio::fs::remove_file(&file_path).await {
-                                println!("Failed to delete {}! {}", &file_path, e);
-                            };
+                            // we should yield now to let other tasks proceed
+                            task::yield_now().await;
+
+                            task::spawn(async move {
+                                match child.wait().await {
+                                    Ok(_) => {
+                                        match run_stt(file_path.clone()).await {
+                                            Ok(r) => {}
+                                            Err(e) => {
+                                                println!("Failed to run speech-to-text! {}", e);
+                                            }
+                                        };
+                                    }
+                                    Err(e) => {
+                                        println!("FFMPEG failed! {}", e);
+                                    }
+                                };
+                                if let Err(e) = tokio::fs::remove_file(&file_path).await {
+                                    println!("Failed to delete {}! {}", &file_path, e);
+                                };
+                            });
                         }
                         DecodeMode::Decode => {
                             println!("Decode mode is DecodeMode::Decode");

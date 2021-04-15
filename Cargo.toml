@@ -27,14 +27,10 @@ audrey = "*"
 dasp_interpolate = { version = "*", features = ["linear"] }
 dasp_signal = "*"
 num_cpus = "1.13"
-
-[dependencies.redis]
-version = "*"
-features = ["aio", "connection-manager", "tokio-comp"]
+procinfo = ""
 
 [dependencies.serenity]
-path = "/home/dustin/serenity-test/serenity/"
-# version = "0.10"
+version = "0.10"
 features = ["client", "standard_framework", "voice", "rustls_backend", "framework", "cache", "collector"]
 
 [dependencies.tokio]

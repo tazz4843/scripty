@@ -1,11 +1,13 @@
-use std::sync::Arc;
-
+use crate::globals::SqlitePoolKey;
 use serenity::{
     client::bridge::gateway::ShardManager,
     model::id::{ChannelId, MessageId},
     prelude::{Context, TypeMapKey},
 };
 use songbird::driver::DecodeMode;
+use sqlx::query;
+use std::sync::Arc;
+use std::time::SystemTime;
 use tokio::sync::RwLock;
 
 pub static DECODE_TYPE: DecodeMode = DecodeMode::Decrypt;
@@ -58,9 +60,7 @@ pub async fn do_stats_update(ctx: Arc<Context>) {
     ctx.cache.set_max_messages(0_usize).await;
     let status_channel = ChannelId(791426352217587732);
     match status_channel
-        .messages(&ctx.http, |retriever| {
-            retriever.after(MessageId(0_u64)).limit(25)
-        })
+        .messages(&ctx.http, |r| r.after(MessageId(0_u64)).limit(25))
         .await
     {
         Ok(m) => {
@@ -72,17 +72,39 @@ pub async fn do_stats_update(ctx: Arc<Context>) {
             println!("Failed to get most recent messages from channel! {}", e)
         }
     };
-    let start = std::time::SystemTime::now();
-    if let Err(why) = status_channel.broadcast_typing(&ctx.http).await {
-        println!("Failed to get latency! {}", why);
-    }
-    let ping_time = match start.elapsed() {
-        Ok(t) => t.as_millis(),
-        Err(e) => {
-            println!("Failed to get ping time! {}", e);
-            return;
+
+    // calculate REST API ping
+    let rest_api_ping_time = {
+        let start = SystemTime::now();
+        if let Err(why) = status_channel.broadcast_typing(&ctx.http).await {
+            println!("Failed to get latency! {}", why);
+        }
+        match start.elapsed() {
+            Ok(t) => t.as_millis(),
+            Err(e) => {
+                println!("Failed to get ping time! {}", e);
+                return;
+            }
         }
     };
+
+    // calculate DB ping
+    let db_ping_time = {
+        let mut v: u128 = 0;
+        if let Some(db) = ctx.data.read().await.get::<SqlitePoolKey>() {
+            let start = SystemTime::now();
+            let _ = query("SELECT prefix FROM prefixes WHERE guild_id = ?")
+                .bind(675390855716274216 as i64)
+                .fetch_optional(db)
+                .await;
+            v = start
+                .elapsed()
+                .expect("System clock rolled back!")
+                .as_millis();
+        }
+        v
+    };
+
     let current_name = ctx.cache.current_user().await.name;
     let guild_count = ctx.cache.guild_count().await as u64;
     let user_count = {
@@ -107,8 +129,13 @@ pub async fn do_stats_update(ctx: Arc<Context>) {
                     .field("Guilds in Cache", guild_count, true)
                     .field("Users in Cached Guilds", user_count, true)
                     .field("Cached Messages", 0.to_string(), true)
-                    .field("Message Send Latency", format!("{}ms", ping_time), true)
+                    .field(
+                        "Message Send Latency",
+                        format!("{}ms", rest_api_ping_time),
+                        true,
+                    )
                     .field("Average WS Latency", format!("{}ms", avg_ws_latency), true)
+                    .field("DB Query Latency", format!("{}ms", db_ping_time), true)
                     .field("Shard Count", shard_info.1, true)
                     .field(
                         "Library",

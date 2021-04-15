@@ -16,10 +16,7 @@ use scripty::{
     cmd_error,
     cmd_help::CMD_HELP,
     cmd_prefix::prefix_check,
-    globals::{
-        set_db, set_redis, BotConfig, BotInfo, CmdInfo, RedisClientWrapper, RedisConnectionWrapper,
-        SqlitePoolKey,
-    },
+    globals::{set_db, BotConfig, BotInfo, CmdInfo, SqlitePoolKey},
     print_and_write, set_dir,
     utils::{ShardManagerWrapper, DECODE_TYPE},
     CONFIG_GROUP, GENERAL_GROUP, MASTER_GROUP, UTILS_GROUP, VOICE_GROUP,
@@ -52,10 +49,6 @@ async fn main() {
     println!("Loading DB...");
     let db = set_db().await;
     println!("Loaded DB!");
-
-    println!("Connecting to Redis...");
-    let (client, conn) = set_redis().await;
-    println!("Connected to Redis!");
 
     let client_init_start = std::time::SystemTime::now();
     println!("Initializing client...");
@@ -115,8 +108,6 @@ async fn main() {
             start_time: client_init_start,
         })
         .type_map_insert::<SqlitePoolKey>(db)
-        .type_map_insert::<RedisClientWrapper>(client)
-        .type_map_insert::<RedisConnectionWrapper>(Arc::new(RwLock::new(conn)))
         .framework(framework)
         .register_songbird_with(songbird)
         .await

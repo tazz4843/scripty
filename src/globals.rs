@@ -2,7 +2,6 @@ use std::{convert::TryFrom, fs, io, path::Path, sync::Arc};
 
 use deepspeech::Model;
 use once_cell::sync::OnceCell;
-use redis::{aio::Connection, Client};
 use serde::Deserialize;
 use serenity::{http::client::Http, model::id::UserId, prelude::TypeMapKey};
 use sqlx::{query, sqlite::SqliteConnectOptions, SqlitePool};
@@ -31,9 +30,6 @@ github = \"https://github.com/USER NAME HERE/REPO NAME HERE\"
 # The colour utils::send_embed() will use if is_error is false: https://www.checkyourmath.com/convert/color/rgb_decimal.php
 colour = 11771355
 
-# Full URI to your Redis instance
-redis_uri = \"redis:///localhost\"
-
 # Full path to the DeepSpeech model and scorer.
 deepspeech_path = \"/home/user/deepspeech\"
 ";
@@ -42,16 +38,6 @@ deepspeech_path = \"/home/user/deepspeech\"
 pub struct SqlitePoolKey;
 impl TypeMapKey for SqlitePoolKey {
     type Value = SqlitePool;
-}
-
-pub struct RedisClientWrapper;
-impl TypeMapKey for RedisClientWrapper {
-    type Value = Client;
-}
-
-pub struct RedisConnectionWrapper;
-impl TypeMapKey for RedisConnectionWrapper {
-    type Value = Arc<RwLock<Connection>>;
 }
 
 /// 1. Opens a connection pool to the database file at the config file, creating it if it doesn't exist
@@ -104,26 +90,6 @@ pub async fn set_db() -> SqlitePool {
     .expect("Couldn't create the guild table.");
 
     db
-}
-
-/// 1. Opens a client to the Redis database.
-/// 2. Opens a connection to the Redis database.
-/// # Panics
-/// - If BotConfig isn't initialised
-/// - Or if initializing it failed
-/// - Or if connecting to it failed
-pub async fn set_redis() -> (Client, Connection) {
-    let redis_uri = BotConfig::get()
-        .expect("Couldn't get BOT_CONFIG to get the database file")
-        .redis_uri
-        .as_str();
-
-    let client = Client::open(redis_uri).expect("Failed to initialize Redis client.");
-    let conn = client
-        .get_async_connection()
-        .await
-        .expect("Failed to initialize Redis connection.");
-    (client, conn)
 }
 
 //noinspection SpellCheckingInspection
@@ -179,7 +145,6 @@ pub struct BotConfig {
     invite: String,
     github: String,
     colour: u32,
-    redis_uri: String,
     model_path: String,
 }
 
@@ -247,10 +212,6 @@ impl BotConfig {
     /// The getter for the `colour` field, to be used with `get()`
     pub fn colour(&self) -> u32 {
         self.colour
-    }
-    /// The getter for the `redis_uri` field, to be used with `get()`
-    pub fn redis_uri(&self) -> &String {
-        &self.redis_uri
     }
     /// The getter for the `model_path` field, to be used with `get()`
     pub fn model_path(&self) -> &String {
