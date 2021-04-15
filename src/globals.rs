@@ -1,11 +1,10 @@
-use std::{convert::TryFrom, fs, io, path::Path, sync::Arc};
+use std::{convert::TryFrom, fs, io, path::Path};
 
 use deepspeech::Model;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
 use serenity::{http::client::Http, model::id::UserId, prelude::TypeMapKey};
 use sqlx::{query, sqlite::SqliteConnectOptions, SqlitePool};
-use tokio::sync::RwLock;
 
 /// The default config to be written when creating a config file
 const DEFAULT_CONFIG: &str =
@@ -87,7 +86,18 @@ pub async fn set_db() -> SqlitePool {
     )
     .execute(&db)
     .await
-    .expect("Couldn't create the guild table.");
+    .expect("Couldn't create the users table.");
+
+    query(
+        "CREATE TABLE IF NOT EXISTS channels (
+        channel_id INTEGER PRIMARY KEY,
+        webhook_token TEXT
+        webhook_id INTEGER
+    ) WITHOUT ROWID",
+    )
+    .execute(&db)
+    .await
+    .expect("Couldn't create the channel table.");
 
     db
 }

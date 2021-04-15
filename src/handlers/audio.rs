@@ -1,5 +1,5 @@
 use crate::{deepspeech::run_stt, utils::DECODE_TYPE};
-use serenity::{async_trait, prelude::RwLock};
+use serenity::{async_trait, model::webhook::Webhook, prelude::RwLock};
 use songbird::{
     driver::DecodeMode,
     model::{
@@ -8,39 +8,40 @@ use songbird::{
     },
     Event, EventContext, EventHandler as VoiceEventHandler,
 };
-use std::{collections::HashMap, marker::PhantomData, process::Stdio, sync::Arc};
+use std::{collections::HashMap, process::Stdio, sync::Arc};
 use tokio::{io::AsyncWriteExt, process::Command, task};
 use uuid::Uuid;
 
 #[derive(Clone)]
-pub struct Receiver<'a> {
+pub struct Receiver {
     ssrc_map: Arc<RwLock<HashMap<u32, UserId>>>,
     audio_buffer: Arc<RwLock<HashMap<u32, Vec<i16>>>>,
     encoded_audio_buffer: Arc<RwLock<HashMap<u32, Vec<u8>>>>,
-    phantom: PhantomData<&'a ()>,
+    webhook: Arc<Webhook>,
 }
 
-impl Receiver<'a> {
-    pub fn new() -> Self {
+impl Receiver {
+    pub fn new(webhook: Webhook) -> Self {
         // You can manage state here, such as a buffer of audio packet bytes so
         // you can later store them in intervals.
         let ssrc_map = Arc::new(RwLock::new(HashMap::new()));
         let audio_buffer = Arc::new(RwLock::new(HashMap::new()));
         let encoded_audio_buffer = Arc::new(RwLock::new(HashMap::new()));
+        let webhook = Arc::new(webhook);
         Self {
             ssrc_map,
             audio_buffer,
             encoded_audio_buffer,
-            phantom: PhantomData,
+            webhook,
         }
     }
 }
 
 #[async_trait]
-impl VoiceEventHandler for Receiver<'_> {
+impl VoiceEventHandler for Receiver {
     //noinspection SpellCheckingInspection
     #[allow(unused_variables)]
-    async fn act<'b>(&'b self, ctx: &EventContext<'_>) -> Option<Event> {
+    async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
         use songbird::EventContext as Ctx;
 
         match ctx {

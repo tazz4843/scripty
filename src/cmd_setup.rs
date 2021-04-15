@@ -3,7 +3,10 @@ use serenity::{
     client::Context,
     collector::CollectReply,
     framework::standard::{macros::command, CommandResult},
-    model::channel::Message,
+    model::{
+        channel::{Channel, ChannelType, Message},
+        prelude::ChannelId,
+    },
     prelude::Mentionable,
 };
 use sqlx::query;
@@ -50,7 +53,8 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
             );
     };
 
-    if msg.channel_id.say(&ctx.http, "Paste the ID of the voice chat you want me to transcript messages from.\nIf you don't know how to get the ID, see this picture: https://cdn.discordapp.com/attachments/697540103136084011/816353842823561306/copy_id.png").await.is_err() {
+    if msg.channel_id.say(&ctx.http, "Paste the ID of the voice chat you want me to transcript messages from.\n\
+    If you don't know how to get the ID, see this picture: https://cdn.discordapp.com/attachments/697540103136084011/816353842823561306/copy_id.png").await.is_err() {
         if let Err(e) = msg.author.direct_message(&ctx.http, |c| {
             c.content(format!("I failed to send a message in {}! Make sure I have permissions to send messages.", msg.channel_id.mention()))
         }).await {
@@ -121,6 +125,124 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
     if let (Some(guild_id), Some(voice_id), Some(result_id), Some(db)) =
         (guild_id, voice_id, result_id, db)
     {
+        let vc_id = ChannelId::from(voice_id);
+        let final_id = ChannelId::from(result_id);
+
+        match match vc_id.to_channel_cached(&ctx).await {
+            Some(c) => c,
+            None => match vc_id.to_channel(&ctx).await {
+                Ok(c) => c,
+                Err(e) => {
+                    let _ = msg
+                        .channel_id
+                        .say(&ctx, format!("I can't convert that to a channel. {:?}", e))
+                        .await;
+                    return Ok(());
+                }
+            },
+        } {
+            Channel::Guild(c) => match c.kind {
+                ChannelType::Voice => {}
+                ChannelType::Stage => {}
+                _ => {
+                    let _ = msg
+                        .channel_id
+                        .say(&ctx, "This isn't a voice channel! Try again.")
+                        .await;
+                    return Ok(());
+                }
+            },
+            _ => {
+                let _ = msg
+                    .channel_id
+                    .say(&ctx, "This isn't a voice channel! Try again.")
+                    .await;
+                return Ok(());
+            }
+        }
+
+        let (id, token) = match match final_id.to_channel_cached(&ctx).await {
+            Some(c) => c,
+            None => match final_id.to_channel(&ctx).await {
+                Ok(c) => c,
+                Err(e) => {
+                    let _ = msg
+                        .channel_id
+                        .say(&ctx, format!("I can't convert that to a channel. {:?}", e))
+                        .await;
+                    return Ok(());
+                }
+            },
+        } {
+            Channel::Guild(c) => match c.kind {
+                ChannelType::Text | ChannelType::News => {
+                    match c.create_webhook(&ctx, "Scripty Transcriptions").await {
+                        Ok(w) => {
+                            match w
+                                .execute(&ctx, true, |m| {
+                                    m.content("Testing transcription webhook...")
+                                })
+                                .await
+                            {
+                                Ok(r) => {
+                                    if let Some(m) = r {
+                                        m.delete(&ctx);
+                                    }
+                                }
+                                Err(e) => {
+                                    msg.channel_id
+                                        .say(
+                                            &ctx,
+                                            format!(
+                                                "Testing the webhook failed. This \
+                                should never happen. Try running the command again. {}",
+                                                e
+                                            ),
+                                        )
+                                        .await;
+                                    return Ok(());
+                                }
+                            }
+                            let token = match w.token {
+                                Some(t) => t,
+                                None => {
+                                    msg.channel_id
+                                        .say(
+                                            &ctx,
+                                            "Discord never sent the bot a token for the \
+                                            webhook. This should never happen. Try running the command again.",
+                                        )
+                                        .await;
+                                    return Ok(());
+                                }
+                            };
+                            let webhook_id = w.id;
+                            (webhook_id, token)
+                        }
+                        Err(e) => {
+                            msg.channel_id
+                                .say(&ctx, format!("I failed to create a webhook for \
+                                transcriptions! Make sure I have the Manage Webhooks permission and try again! {}", e))
+                                .await;
+                            return Ok(());
+                        }
+                    }
+                }
+                _ => {
+                    msg.channel_id
+                        .say(&ctx, "This isn't a text channel! Try again.")
+                        .await;
+                    return Ok(());
+                }
+            },
+            _ => {
+                msg.channel_id
+                    .say(&ctx, "This isn't a text channel! Try again.")
+                    .await;
+                return Ok(());
+            }
+        };
+
         match query(
             "INSERT OR REPLACE INTO guilds (guild_id, default_bind, output_channel)
             VALUES(?, ?, ?);",
