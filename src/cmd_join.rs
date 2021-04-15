@@ -57,9 +57,8 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
         None => match connect_to.to_channel(&ctx).await {
             Ok(c) => c,
             Err(e) => {
-                let _ = msg
-                    .channel_id
-                    .say(&ctx, format!("I can't convert that to a channel. {:?}", e))
+                msg.channel_id
+                    .reply(&ctx, format!("I can't convert that to a channel. {:?}", e))
                     .await;
                 return Ok(());
             }
@@ -69,17 +68,15 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
             ChannelType::Voice => {}
             ChannelType::Stage => {}
             _ => {
-                let _ = msg
-                    .channel_id
-                    .say(&ctx, "This isn't a voice channel! Try again.")
+                msg.channel_id
+                    .reply(&ctx, "This isn't a voice channel! Try again.")
                     .await;
                 return Ok(());
             }
         },
         _ => {
-            let _ = msg
-                .channel_id
-                .say(&ctx, "This isn't a voice channel! Try again.")
+            msg.channel_id
+                .reply(&ctx, "This isn't a voice channel! Try again.")
                 .await;
             return Ok(());
         }
@@ -87,7 +84,7 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
 
     if let Err(e) = msg
         .channel_id
-        .say(&ctx.http, &"Initializing voice client, please wait...")
+        .reply(&ctx.http, &"Initializing voice client, please wait...")
         .await
     {
         log(ctx, format!("Failed to send message! {:?}", e)).await
@@ -121,7 +118,7 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
                         None => {
                             msg
                     .channel_id
-                    .say(
+                    .reply(
                         &ctx.http,
                         "This channel hasn't been set up! Run the `setup` command, with this channel \
                             set as the result channel."
@@ -162,7 +159,7 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
                 Ok(w) => w,
                 Err(e) => {
                     msg.channel_id
-                        .say(
+                        .reply(
                             &ctx.http,
                             format!(
                                 "A error occurred while fetching the webhook. Make sure \
@@ -180,7 +177,7 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
             if let Err(e) = handler.mute(true).await {
                 if let Err(e) = msg
                     .channel_id
-                    .say(
+                    .reply(
                         &ctx.http,
                         &format!(
                             "Failed to mute myself! You can mute me if you desire.\nReason: {:?}",
@@ -200,7 +197,7 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
 
             if let Err(e) = msg
                 .channel_id
-                .say(&ctx.http, &format!("Joined {}", connect_to.mention()))
+                .reply(&ctx.http, &format!("Joined {}", connect_to.mention()))
                 .await
             {
                 log(ctx, format!("Failed to send message! {:?}", e)).await
@@ -209,7 +206,7 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
         Err(e) => {
             if let Err(e) = msg
                 .channel_id
-                .say(&ctx.http, format!("Error joining the channel: {}", e))
+                .reply(&ctx.http, format!("Error joining the channel: {}", e))
                 .await
             {
                 log(ctx, format!("Failed to send message! {:?}", e)).await
