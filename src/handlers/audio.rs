@@ -148,7 +148,7 @@ impl VoiceEventHandler for Receiver {
                                 .args(&args)
                                 .stdin(Stdio::piped())
                                 .stdout(Stdio::null())
-                                .stderr(Stdio::inherit())
+                                .stderr(Stdio::null())
                                 .kill_on_drop(true)
                                 .spawn()
                             {
