@@ -100,7 +100,7 @@ pub async fn do_stats_update(ctx: Arc<Context>) {
             v = start
                 .elapsed()
                 .expect("System clock rolled back!")
-                .as_millis();
+                .as_micros();
         }
         v
     };
@@ -135,7 +135,7 @@ pub async fn do_stats_update(ctx: Arc<Context>) {
                         true,
                     )
                     .field("Average WS Latency", format!("{}ms", avg_ws_latency), true)
-                    .field("DB Query Latency", format!("{}ms", db_ping_time), true)
+                    .field("DB Query Latency", format!("{}µs", db_ping_time), true)
                     .field("Shard Count", shard_info.1, true)
                     .field(
                         "Library",
