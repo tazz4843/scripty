@@ -218,9 +218,9 @@ impl VoiceEventHandler for Receiver {
                                         println!("FFMPEG failed! {}", e);
                                     }
                                 };
-                                //if let Err(e) = tokio::fs::remove_file(&file_path).await {
-                                //    println!("Failed to delete {}! {}", &file_path, e);
-                                //};
+                                if let Err(e) = tokio::fs::remove_file(&file_path).await {
+                                    println!("Failed to delete {}! {}", &file_path, e);
+                                };
                             });
                         }
                         DecodeMode::Decode => {
@@ -329,9 +329,9 @@ impl VoiceEventHandler for Receiver {
                                         println!("FFMPEG failed! {}", e);
                                     }
                                 };
-                                //if let Err(e) = tokio::fs::remove_file(&file_path).await {
-                                //    println!("Failed to delete {}! {}", &file_path, e);
-                                //};
+                                if let Err(e) = tokio::fs::remove_file(&file_path).await {
+                                    println!("Failed to delete {}! {}", &file_path, e);
+                                };
                             });
                         }
                         _ => {
