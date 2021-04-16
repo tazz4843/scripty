@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::RwLock;
 
-pub static DECODE_TYPE: DecodeMode = DecodeMode::Decrypt;
+pub static DECODE_TYPE: DecodeMode = DecodeMode::Decode;
 
 pub enum ContextTypes<'a> {
     NoArc(&'a Context),

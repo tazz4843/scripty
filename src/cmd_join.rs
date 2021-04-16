@@ -15,6 +15,8 @@ use songbird::CoreEvent;
 use sqlx::sqlite::SqliteQueryResult;
 use sqlx::{query, Error, Row};
 use std::convert::TryInto;
+use std::hint::unreachable_unchecked;
+use std::sync::Arc;
 
 #[command("join")]
 #[required_permissions("MANAGE_GUILD")]
@@ -36,13 +38,14 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
             I let my dev know, until then just please wait.",
         );
         send_embed(ctx, msg, true, e);
+        return Ok(());
     };
 
     let connect_to = match args.single::<u64>() {
         Ok(id) => ChannelId(id),
         Err(_) => {
             if let Err(e) = msg
-                .reply(ctx, "Requires a valid voice channel ID be given")
+                .reply(ctx, "The snowflake ID you gave was invalid.")
                 .await
             {
                 log(ctx, format!("Failed to send message! {:?}", e)).await
@@ -57,33 +60,119 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
         None => match connect_to.to_channel(&ctx).await {
             Ok(c) => c,
             Err(e) => {
-                msg.channel_id
-                    .reply(&ctx, format!("I can't convert that to a channel. {:?}", e))
+                msg.reply(&ctx, format!("I can't convert that to a channel. {:?}", e))
                     .await;
                 return Ok(());
             }
         },
     } {
         Channel::Guild(c) => match c.kind {
-            ChannelType::Voice => {}
-            ChannelType::Stage => {}
+            ChannelType::Voice | ChannelType::Stage => {}
             _ => {
-                msg.channel_id
-                    .reply(&ctx, "This isn't a voice channel! Try again.")
+                msg.reply(&ctx, "This isn't a voice channel! Try again.")
                     .await;
                 return Ok(());
             }
         },
         _ => {
-            msg.channel_id
-                .reply(&ctx, "This isn't a voice channel! Try again.")
+            msg.reply(&ctx, "This isn't a guild channel! Try again.")
                 .await;
             return Ok(());
         }
     }
 
+    let (token, id): (String, u64) = match query(
+        "SELECT webhook_token, webhook_id FROM channels WHERE channel_id = ?",
+    )
+    .bind(i64::from(msg.channel_id))
+    .fetch_optional(db.unwrap_or_else(|| unsafe {
+        unreachable_unchecked() // why? we've already made 100% sure the DB pool exists above.
+    }))
+    .await
+    {
+        Ok(result) => {
+            let result = match result {
+                Some(r) => r,
+                None => {
+                    msg
+                    .reply(
+                        &ctx.http,
+                        "This channel hasn't been set up! Run the `setup` command, with this channel \
+                            set as the result channel."
+                    )
+                    .await;
+                    return Ok(());
+                }
+            };
+
+            let token = match result.try_get(0) {
+                Ok(r) => r,
+                Err(e) => {
+                    msg
+                    .reply(
+                        &ctx.http,
+                        "This channel hasn't been set up! Run the `setup` command, with this channel \
+                            set as the result channel."
+                    )
+                    .await;
+                    log(ctx, format!("Couldn't get index 0 {:?}", e)).await;
+                    return Ok(());
+                }
+            };
+            let id = match result.try_get::<i64, usize>(1) {
+                Ok(r) => match r.try_into() {
+                    Ok(r) => r,
+                    Err(e) => {
+                        msg.reply(&ctx.http, "Something went wrong that should absolutely \
+                        never happen! This has been logged, and if it happens again, let the devs know \
+                        in the support server.").await;
+                        log(ctx, format!("Failed to convert to u64! {}", e));
+                        return Ok(());
+                    }
+                },
+                Err(e) => {
+                    msg
+                    .reply(
+                        &ctx.http,
+                        "This channel hasn't been set up! Run the `setup` command, with this channel \
+                            set as the result channel."
+                    )
+                    .await;
+                    log(ctx, format!("Couldn't get index 1 {:?}", e)).await;
+                    return Ok(());
+                }
+            };
+            (token, id)
+        }
+        Err(e) => {
+            msg.reply(
+                &ctx.http,
+                "This channel hasn't been set up! Run the `setup` command, with this channel \
+                            set as the result channel.",
+            )
+            .await;
+            log(ctx, format!("Couldn't get row from table {:?}", e)).await;
+            return Ok(());
+        }
+    };
+
+    let webhook = match ctx.http.http().get_webhook_with_token(id, &*token).await {
+        Ok(w) => w,
+        Err(e) => {
+            msg.reply(
+                &ctx.http,
+                format!(
+                    "A error occurred while fetching the webhook. Make sure it hasn't been \
+                    deleted. If it has, re-run `setup`. {}",
+                    e
+                ),
+            )
+            .await;
+            return Ok(());
+        }
+    };
+
     if let Err(e) = msg
-        .channel_id
         .reply(&ctx.http, &"Initializing voice client, please wait...")
         .await
     {
@@ -105,78 +194,12 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
             // NOTE: this skips listening for the actual connection result.
             let mut handler = handler_lock.lock().await;
 
-            let (token, id): (String, u64) = match query(
-                "SELECT (webhook_token, webhook_id) FROM channels WHERE channel_id = ?",
-            )
-            .bind(msg.channel_id.0 as i64)
-            .fetch_optional(db.unwrap())
-            .await
-            {
-                Ok(result) => {
-                    let result = match result {
-                        Some(r) => r,
-                        None => {
-                            msg
-                    .channel_id
-                    .reply(
-                        &ctx.http,
-                        "This channel hasn't been set up! Run the `setup` command, with this channel \
-                            set as the result channel."
-                    )
-                    .await;
-                            return Ok(());
-                        }
-                    };
+            let ctx1 = Arc::new(ctx.clone());
 
-                    let token = match result.try_get(0) {
-                        Ok(r) => r,
-                        Err(e) => {
-                            return Ok(());
-                        }
-                    };
-                    let id = match result.try_get::<i64, usize>(1) {
-                        Ok(r) => match r.try_into() {
-                            Ok(r) => r,
-                            Err(e) => {
-                                println!("Failed to convert to u64! {}", e);
-                                return Ok(());
-                            }
-                        },
-                        Err(e) => {
-                            return Ok(());
-                        }
-                    };
-                    (token, id)
-                }
-                Err(e) => {
-                    return Ok(());
-                }
-            };
-
-            let webhook = ctx.http.http().get_webhook_with_token(id, &*token).await;
-
-            let webhook = match webhook {
-                Ok(w) => w,
-                Err(e) => {
-                    msg.channel_id
-                        .reply(
-                            &ctx.http,
-                            format!(
-                                "A error occurred while fetching the webhook. Make sure \
-                            it hasn't been deleted. If it has, re-run `setup`. {}",
-                                e
-                            ),
-                        )
-                        .await;
-                    return Ok(());
-                }
-            };
-
-            let receiver = Receiver::new(webhook);
+            let receiver = Receiver::new(webhook, ctx1);
 
             if let Err(e) = handler.mute(true).await {
                 if let Err(e) = msg
-                    .channel_id
                     .reply(
                         &ctx.http,
                         &format!(
@@ -196,7 +219,6 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
             handler.add_global_event(CoreEvent::ClientDisconnect.into(), receiver.clone());
 
             if let Err(e) = msg
-                .channel_id
                 .reply(&ctx.http, &format!("Joined {}", connect_to.mention()))
                 .await
             {
@@ -205,7 +227,6 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
         }
         Err(e) => {
             if let Err(e) = msg
-                .channel_id
                 .reply(&ctx.http, format!("Error joining the channel: {}", e))
                 .await
             {

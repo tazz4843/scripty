@@ -262,11 +262,32 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                     );
             }
             _ => {
-                is_error = false;
-                embed.title("Set up successfully!").description(
+                match query(
+                    "INSERT OR REPLACE INTO channels (channel_id, webhook_token, webhook_id)
+            VALUES(?, ?, ?);",
+                )
+                .bind(i64::from(msg.channel_id))
+                .bind(token)
+                .bind(i64::from(id))
+                .execute(db)
+                .await
+                {
+                    Err(err) => {
+                        log(ctx, format!("Couldn't insert to channels: {}", err)).await;
+                        embed
+                            .title("Ugh, I couldn't write that down..")
+                            .description(
+                                "I just let my developer know, until then you could just try again",
+                            );
+                    }
+                    _ => {
+                        is_error = false;
+                        embed.title("Set up successfully!").description(
                     "The bot will join the VC within 10 minutes and stay in there forever.\n
                     Until then there's nothing much to do besides wait.",
                 );
+                    }
+                }
             }
         }
     }

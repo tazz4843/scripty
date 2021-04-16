@@ -1,4 +1,6 @@
 use crate::{deepspeech::run_stt, utils::DECODE_TYPE};
+use serenity::http::CacheHttp;
+use serenity::prelude::Context;
 use serenity::{async_trait, model::webhook::Webhook, prelude::RwLock};
 use songbird::{
     driver::DecodeMode,
@@ -18,10 +20,11 @@ pub struct Receiver {
     audio_buffer: Arc<RwLock<HashMap<u32, Vec<i16>>>>,
     encoded_audio_buffer: Arc<RwLock<HashMap<u32, Vec<u8>>>>,
     webhook: Arc<Webhook>,
+    context: Arc<Context>,
 }
 
 impl Receiver {
-    pub fn new(webhook: Webhook) -> Self {
+    pub fn new(webhook: Webhook, context: Arc<Context>) -> Self {
         // You can manage state here, such as a buffer of audio packet bytes so
         // you can later store them in intervals.
         let ssrc_map = Arc::new(RwLock::new(HashMap::new()));
@@ -33,6 +36,7 @@ impl Receiver {
             audio_buffer,
             encoded_audio_buffer,
             webhook,
+            context,
         }
     }
 }
@@ -72,25 +76,11 @@ impl VoiceEventHandler for Receiver {
                     match DECODE_TYPE {
                         DecodeMode::Decrypt => {
                             let mut audio_buf = self.encoded_audio_buffer.write().await;
-                            match audio_buf.get_mut(ssrc) {
-                                Some(b) => {
-                                    b.clear();
-                                }
-                                None => {
-                                    audio_buf.insert(*ssrc, Vec::new());
-                                }
-                            }
+                            audio_buf.insert(*ssrc, Vec::new());
                         }
                         DecodeMode::Decode => {
                             let mut audio_buf = self.audio_buffer.write().await;
-                            match audio_buf.get_mut(ssrc) {
-                                Some(b) => {
-                                    b.clear();
-                                }
-                                None => {
-                                    audio_buf.insert(*ssrc, Vec::new());
-                                }
-                            }
+                            audio_buf.insert(*ssrc, Vec::new());
                         }
                         _ => {
                             panic!("No supported decode mode found!")
@@ -104,7 +94,7 @@ impl VoiceEventHandler for Receiver {
                 let uid: u64 = {
                     let map = self.ssrc_map.read().await;
                     match map.get(ssrc) {
-                        Some(u) => u.to_string().parse().unwrap(),
+                        Some(u) => u.0,
                         None => 0,
                     }
                 };
@@ -148,17 +138,10 @@ impl VoiceEventHandler for Receiver {
                             };
                             */
                             let args = [
-                                "-f",
-                                "s16be",
-                                "-ar",
-                                "8000",
-                                "-ac",
-                                "1",
-                                "-acodec",
-                                "pcm_s16le",
-                                "-i",
-                                "-",
-                                &file_path,
+                                "-f", "s16be", "-ar", "8000", "-ac", "1",
+                                // "-acodec",
+                                // "pcm_s16le",
+                                "-i", "-", &file_path,
                             ];
 
                             let mut child = match Command::new("ffmpeg")
@@ -195,12 +178,37 @@ impl VoiceEventHandler for Receiver {
                             // we now have a file named "{}.wav" where {} is a random UUID as a 128-bit integer.
                             // we should yield now to let other tasks proceed
                             task::yield_now().await;
+                            let webhook = self.webhook.clone();
+                            let context = self.context.clone();
 
                             task::spawn(async move {
                                 match child.wait().await {
                                     Ok(_) => {
                                         match run_stt(file_path.clone()).await {
-                                            Ok(r) => {}
+                                            Ok(r) => {
+                                                if r.len() != 0 {
+                                                    match context.cache.user(uid).await {
+                                                        Some(u) => {
+                                                            let profile_picture = match u.avatar {
+                                                                Some(a) => {
+                                                                    format!("https://cdn.discordapp.com/avatars/{}/{}.png", u.id, a)
+                                                                }
+                                                                None => u.default_avatar_url(),
+                                                            };
+                                                            let name = u.name;
+
+                                                            webhook
+                                                                .execute(&context, false, |m| {
+                                                                    m.avatar_url(profile_picture)
+                                                                        .content(r)
+                                                                        .username(name)
+                                                                })
+                                                                .await;
+                                                        }
+                                                        None => {}
+                                                    }
+                                                }
+                                            }
                                             Err(e) => {
                                                 println!("Failed to run speech-to-text! {}", e);
                                             }
@@ -210,42 +218,121 @@ impl VoiceEventHandler for Receiver {
                                         println!("FFMPEG failed! {}", e);
                                     }
                                 };
-                                if let Err(e) = tokio::fs::remove_file(&file_path).await {
-                                    println!("Failed to delete {}! {}", &file_path, e);
-                                };
+                                //if let Err(e) = tokio::fs::remove_file(&file_path).await {
+                                //    println!("Failed to delete {}! {}", &file_path, e);
+                                //};
                             });
                         }
                         DecodeMode::Decode => {
-                            println!("Decode mode is DecodeMode::Decode");
-                            unimplemented!();
-
-                            /*
-                            let audio = self.encoded_audio_buffer.read().await.clone();
-
-                            match OpenOptions::new()
-                                .write(true)
-                                .create(true)
-                                .open(format!("{}.opus", ssrc))
-                                .await
-                            {
-                                Ok(mut f) => {
-                                    for i in audio {
-                                        if let Err(e) = f.write_u8(i).await {
-                                            println!("Failed to write byte to file! {}", e);
-                                        };
+                            // all of this code reeks of https://www.youtube.com/watch?v=lIFE7h3m40U
+                            let audio = {
+                                let mut buf = self.audio_buffer.write().await;
+                                match buf.insert(*ssrc, Vec::new()) {
+                                    Some(a) => a,
+                                    None => {
+                                        println!(
+                                            "Didn't find a user with SSRC {} in the audio buffers.",
+                                            ssrc
+                                        );
+                                        return None;
                                     }
                                 }
+                            };
+                            let file_id = Uuid::new_v4();
+                            let file_path = format!("{}.wav", file_id.as_u128());
+
+                            let args = [
+                                "-f",
+                                "s16be",
+                                "-ar",
+                                "8000",
+                                "-ac",
+                                "1",
+                                "-acodec",
+                                "pcm_s16le",
+                                "-i",
+                                "-",
+                                &file_path,
+                            ];
+
+                            let mut child = match Command::new("ffmpeg")
+                                .args(&args)
+                                .stdin(Stdio::piped())
+                                .stdout(Stdio::null())
+                                .stderr(Stdio::inherit())
+                                .kill_on_drop(true)
+                                .spawn()
+                            {
                                 Err(e) => {
-                                    println!("Failed to open/create file! {}", e);
+                                    println!("Failed to spawn FFMPEG!");
+                                    return None;
+                                }
+                                Ok(c) => {
+                                    println!("Spawned FFMPEG!");
+                                    c
                                 }
                             };
 
-                            // we now have a file named "{}.opus" where {} is the user's SSRC.
-                            // TODO: read and send to STT API
-                            {
-                                self.audio_buffer.write().await.clear(); // now to clear it
-                            }
-                             */
+                            match child.stdin {
+                                Some(ref mut stdin) => {
+                                    for i in audio {
+                                        if let Err(e) = stdin.write_i16(i).await {
+                                            println!("Failed to write byte to FFMPEG stdin! {}", e);
+                                        };
+                                    }
+                                }
+                                None => {
+                                    println!("Failed to open FFMPEG stdin!");
+                                    return None;
+                                }
+                            };
+                            // we now have a file named "{}.wav" where {} is a random UUID as a 128-bit integer.
+                            // we should yield now to let other tasks proceed
+                            task::yield_now().await;
+                            let webhook = self.webhook.clone();
+                            let context = self.context.clone();
+
+                            task::spawn(async move {
+                                match child.wait().await {
+                                    Ok(_) => {
+                                        match run_stt(file_path.clone()).await {
+                                            Ok(r) => {
+                                                if r.len() != 0 {
+                                                    match context.cache.user(uid).await {
+                                                        Some(u) => {
+                                                            let profile_picture = match u.avatar {
+                                                                Some(a) => {
+                                                                    format!("https://cdn.discordapp.com/avatars/{}/{}.png", u.id, a)
+                                                                }
+                                                                None => u.default_avatar_url(),
+                                                            };
+                                                            let name = u.name;
+
+                                                            webhook
+                                                                .execute(&context, false, |m| {
+                                                                    m.avatar_url(profile_picture)
+                                                                        .content(r)
+                                                                        .username(name)
+                                                                })
+                                                                .await;
+                                                        }
+                                                        None => {}
+                                                    }
+                                                }
+                                            }
+                                            Err(e) => {
+                                                println!("Failed to run speech-to-text! {}", e);
+                                            }
+                                        };
+                                    }
+                                    Err(e) => {
+                                        println!("FFMPEG failed! {}", e);
+                                    }
+                                };
+                                //if let Err(e) = tokio::fs::remove_file(&file_path).await {
+                                //    println!("Failed to delete {}! {}", &file_path, e);
+                                //};
+                            });
                         }
                         _ => {
                             println!("Decode mode is invalid!");
@@ -278,38 +365,14 @@ impl VoiceEventHandler for Receiver {
                 };
                 match audio {
                     Some(audio) => {
-                        println!("Decoded audio is not currently supported.");
-                        /*
-                        let aud = audio.clone();
-                        println!("Audio packet: SSRC {}, user ID {}", packet.ssrc, uid);
-
-                        {
-                            // get exclusive write access to the audio buffer and write to it
-                            let mut buf = self.audio_buffer.write().await;
-                            let mut j: u32 = 0;
-                            for i in aud {
-                                buf.push(i);
-                                /*
-                                if j % 2 == 0 {
-                                    buf.push(i);
-                                }
-                                 */
-                                j += 1;
-                            }
-                        }
-                        let mut f = match tokio::fs::File::open(format!("{}.pcm", packet.ssrc)).await {
-                            Ok(f) => f,
-                            Err(e) => {
-                                println!("Failed to open file! {}", e);
+                        let mut buf = self.audio_buffer.write().await;
+                        let b = match buf.get_mut(&packet.ssrc) {
+                            Some(b) => b,
+                            None => {
                                 return None;
                             }
                         };
-                        for i in audio {
-                            f.write_i16(*i).await;
-                        }
-
-                        tokio::fs::write(format!("{}.pcm", packet.ssrc), &audio).await;
-                         */
+                        b.extend(audio);
                     }
                     _ => {
                         let audio_range: &usize = &(packet.payload.len() - payload_end_pad);
