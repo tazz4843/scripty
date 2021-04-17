@@ -1,5 +1,4 @@
 use crate::{deepspeech::run_stt, utils::DECODE_TYPE};
-use serenity::http::CacheHttp;
 use serenity::prelude::Context;
 use serenity::{async_trait, model::webhook::Webhook, prelude::RwLock};
 use songbird::{
@@ -197,13 +196,14 @@ impl VoiceEventHandler for Receiver {
                                                             };
                                                             let name = u.name;
 
-                                                            webhook
+                                                            let _ = webhook
                                                                 .execute(&context, false, |m| {
                                                                     m.avatar_url(profile_picture)
                                                                         .content(r)
                                                                         .username(name)
                                                                 })
                                                                 .await;
+                                                            // see comments below
                                                         }
                                                         None => {}
                                                     }
@@ -308,13 +308,14 @@ impl VoiceEventHandler for Receiver {
                                                             };
                                                             let name = u.name;
 
-                                                            webhook
+                                                            let _ = webhook
                                                                 .execute(&context, false, |m| {
                                                                     m.avatar_url(profile_picture)
                                                                         .content(r)
                                                                         .username(name)
                                                                 })
-                                                                .await;
+                                                                .await; // we don't care if the webhook failed
+                                                                        // it might suck for UX but it's a lot harder to keep retrying
                                                         }
                                                         None => {}
                                                     }

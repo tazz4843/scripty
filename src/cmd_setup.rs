@@ -11,7 +11,7 @@ use serenity::{
 };
 use sqlx::query;
 
-use crate::{globals::SqlitePoolKey, log, send_embed};
+use crate::{bind, globals::SqlitePoolKey, log, send_embed};
 use std::{str::FromStr, sync::Arc};
 use tokio::time::Duration;
 
@@ -133,10 +133,9 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
             None => match vc_id.to_channel(&ctx).await {
                 Ok(c) => c,
                 Err(e) => {
-                    let _ = msg
-                        .channel_id
+                    msg.channel_id
                         .say(&ctx, format!("I can't convert that to a channel. {:?}", e))
-                        .await;
+                        .await?;
                     return Ok(());
                 }
             },
@@ -145,18 +144,16 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                 ChannelType::Voice => {}
                 ChannelType::Stage => {}
                 _ => {
-                    let _ = msg
-                        .channel_id
+                    msg.channel_id
                         .say(&ctx, "This isn't a voice channel! Try again.")
-                        .await;
+                        .await?;
                     return Ok(());
                 }
             },
             _ => {
-                let _ = msg
-                    .channel_id
+                msg.channel_id
                     .say(&ctx, "This isn't a voice channel! Try again.")
-                    .await;
+                    .await?;
                 return Ok(());
             }
         }
@@ -166,10 +163,9 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
             None => match final_id.to_channel(&ctx).await {
                 Ok(c) => c,
                 Err(e) => {
-                    let _ = msg
-                        .channel_id
+                    msg.channel_id
                         .say(&ctx, format!("I can't convert that to a channel. {:?}", e))
-                        .await;
+                        .await?;
                     return Ok(());
                 }
             },
@@ -186,20 +182,19 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                             {
                                 Ok(r) => {
                                     if let Some(m) = r {
-                                        m.delete(&ctx);
+                                        let _ = m.delete(&ctx).await; // we don't care if deleting failed
                                     }
                                 }
                                 Err(e) => {
-                                    msg.channel_id
-                                        .say(
-                                            &ctx,
-                                            format!(
-                                                "Testing the webhook failed. This \
+                                    msg.reply(
+                                        &ctx,
+                                        format!(
+                                            "Testing the webhook failed. This \
                                 should never happen. Try running the command again. {}",
-                                                e
-                                            ),
-                                        )
-                                        .await;
+                                            e
+                                        ),
+                                    )
+                                    .await?;
                                     return Ok(());
                                 }
                             }
@@ -212,7 +207,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                                             "Discord never sent the bot a token for the \
                                             webhook. This should never happen. Try running the command again.",
                                         )
-                                        .await;
+                                        .await?;
                                     return Ok(());
                                 }
                             };
@@ -223,7 +218,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                             msg.channel_id
                                 .say(&ctx, format!("I failed to create a webhook for \
                                 transcriptions! Make sure I have the Manage Webhooks permission and try again! {}", e))
-                                .await;
+                                .await?;
                             return Ok(());
                         }
                     }
@@ -231,14 +226,14 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                 _ => {
                     msg.channel_id
                         .say(&ctx, "This isn't a text channel! Try again.")
-                        .await;
+                        .await?;
                     return Ok(());
                 }
             },
             _ => {
                 msg.channel_id
                     .say(&ctx, "This isn't a text channel! Try again.")
-                    .await;
+                    .await?;
                 return Ok(());
             }
         };
@@ -282,10 +277,9 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                     }
                     _ => {
                         is_error = false;
-                        embed.title("Set up successfully!").description(
-                    "The bot will join the VC within 10 minutes and stay in there forever.\n
-                    Until then there's nothing much to do besides wait.",
-                );
+                        embed
+                            .title("Set up successfully!")
+                            .description("Give the bot a few moments to join the VC.");
                     }
                 }
             }
@@ -293,5 +287,16 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
     }
 
     send_embed(ctx, msg, is_error, embed).await;
+
+    if let (Some(guild_id), Some(voice_id), Some(result_id)) = (guild_id, voice_id, result_id) {
+        match bind::bind(ctx, voice_id.into(), result_id.into(), guild_id).await {
+            Err(e) => {
+                msg.reply(ctx, format!("Connecting to VC failed! `{}`. Wait a few more \
+                minutes for the bot to run auto-join, and if it still doesn't join, let the devs know.", e)).await?;
+            }
+            _ => {}
+        };
+    }
+
     Ok(())
 }

@@ -1,6 +1,7 @@
 #![feature(async_closure)]
 #![feature(in_band_lifetimes)]
-
+#![deny(unused_must_use)] // because i suck at `.await`ing futures
+#![deny(unused_imports)] // so as not to pollute compiling output
 use crate::{
     cmd_info::CMD_INFO_COMMAND,
     cmd_join::CMD_JOIN_COMMAND,
@@ -18,6 +19,8 @@ use serenity::{
 };
 use std::{env, fmt::Display, io::Write};
 
+/// The module for binding the bot to a VC
+pub mod bind;
 /// The module for error handling of the commands
 pub mod cmd_error;
 /// The module for the `help` command
