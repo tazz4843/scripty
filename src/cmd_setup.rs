@@ -261,7 +261,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                     "INSERT OR REPLACE INTO channels (channel_id, webhook_token, webhook_id)
             VALUES(?, ?, ?);",
                 )
-                .bind(i64::from(msg.channel_id))
+                .bind(result_id as i64)
                 .bind(token)
                 .bind(i64::from(id))
                 .execute(db)
