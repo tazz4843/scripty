@@ -93,6 +93,17 @@ impl EventHandler for Handler {
                                         }
                                     };
 
+                                    if let Some(_) = songbird::get(&ctx2)
+                                        .await
+                                        .unwrap_or_else(|| unsafe {
+                                            hint::unreachable_unchecked() // SAFETY: this should absolutely never happen if Songbird is registered at client init.
+                                                                          // if it isn't registered, UB would result anyways
+                                        })
+                                        .get::<u64>(guild_id.into())
+                                    {
+                                        continue;
+                                    };
+
                                     let vc_id = match row.try_get::<i64, usize>(1) {
                                         Ok(val) => val as u64,
                                         Err(_) => {
