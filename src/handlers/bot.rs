@@ -1,4 +1,6 @@
-use crate::{globals::BotConfig, utils::do_stats_update};
+use crate::globals::SqlitePoolKey;
+use crate::{bind, globals::BotConfig, utils::do_stats_update};
+use serenity::futures::TryStreamExt;
 use serenity::{
     async_trait,
     client::{Context, EventHandler},
@@ -7,7 +9,9 @@ use serenity::{
         id::GuildId,
     },
 };
+use sqlx::Row;
 use std::{
+    hint,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -57,6 +61,7 @@ impl EventHandler for Handler {
         if !self.is_loop_running.load(Ordering::Relaxed) {
             // We have to clone the Arc, as it gets moved into the new thread.
             let ctx1 = Arc::clone(&ctx);
+            let ctx2 = Arc::clone(&ctx);
             // tokio::spawn creates a new green thread that can run in parallel with the rest of
             // the application.
             tokio::spawn(async move {
@@ -65,6 +70,61 @@ impl EventHandler for Handler {
                     // new function.
                     do_stats_update(Arc::clone(&ctx1)).await;
                     tokio::time::sleep(Duration::from_secs(30)).await;
+                }
+            });
+
+            tokio::spawn(async move {
+                loop {
+                    let data = ctx2.data.read().await;
+                    let pool = data.get::<SqlitePoolKey>().unwrap_or_else(|| unsafe {
+                        hint::unreachable_unchecked()
+                        // SAFETY: this should absolutely never happen if the DB pool is placed
+                        // in at initialization. if that were to happen, undefined behavior would result anyways
+                    });
+                    let mut query = sqlx::query("SELECT * FROM main.guilds").fetch(pool);
+                    loop {
+                        match query.try_next().await {
+                            Ok(row) => match row {
+                                Some(row) => {
+                                    let guild_id = match row.try_get::<i64, usize>(0) {
+                                        Ok(val) => val as u64,
+                                        Err(_) => {
+                                            continue;
+                                        }
+                                    };
+
+                                    let vc_id = match row.try_get::<i64, usize>(1) {
+                                        Ok(val) => val as u64,
+                                        Err(_) => {
+                                            continue;
+                                        }
+                                    };
+                                    let result_id = match row.try_get::<i64, usize>(2) {
+                                        Ok(val) => val as u64,
+                                        Err(_) => {
+                                            continue;
+                                        }
+                                    };
+
+                                    let _ = bind::bind(
+                                        &ctx,
+                                        vc_id.into(),
+                                        result_id.into(),
+                                        guild_id.into(),
+                                    )
+                                    .await;
+                                }
+                                None => {
+                                    break;
+                                }
+                            },
+                            Err(_) => {
+                                continue;
+                            }
+                        }
+                    }
+
+                    tokio::time::sleep(Duration::from_secs(300)).await;
                 }
             });
 
