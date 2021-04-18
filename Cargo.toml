@@ -28,6 +28,7 @@ dasp_interpolate = { version = "*", features = ["linear"] }
 dasp_signal = "*"
 num_cpus = "1.13"
 procinfo = ""
+reqwest = "0.11"
 
 [dependencies.serenity]
 version = "0.10"
@@ -44,6 +45,3 @@ features = ["derive"]
 [dependencies.sqlx]
 version = "0.5"
 features = ["runtime-tokio-rustls", "sqlite"]
-
-[replace]
-"serenity:0.10.2" = { path = "/home/dustin/serenity-test/serenity/" }

@@ -6,6 +6,7 @@ use serenity::{
     prelude::Mentionable,
 };
 
+use crate::globals::VERSION;
 use crate::{
     globals::{BotConfig, BotInfo},
     log, send_embed,
@@ -22,7 +23,7 @@ use crate::{
 async fn cmd_info(ctx: &Context, msg: &Message) -> CommandResult {
     let mut embed = CreateEmbed::default();
     embed.footer(|f| {
-        f.text("I act weirdly? Want me to speak another language? Anything else? You can DM my owner anytime for any feedback you have!")
+        f.text("I act weirdly? Want me to speak another language? Anything else? You can join the support server anytime for any feedback you have!")
     });
     let mut is_error = false;
 
@@ -35,7 +36,7 @@ async fn cmd_info(ctx: &Context, msg: &Message) -> CommandResult {
         None => {
             log(ctx, "Couldn't get BotInfo for the `info` command").await;
             embed.description("Awkward but I think I forgot who I am..");
-            is_error = true
+            is_error = true;
         }
     };
 
@@ -49,9 +50,11 @@ async fn cmd_info(ctx: &Context, msg: &Message) -> CommandResult {
         None => {
             log(ctx, "Couldn't get BotConfig for the `info` command").await;
             embed.title("Oops, I lost my invite, I swear I had it right here");
-            is_error = true
+            is_error = true;
         }
     };
+    embed.field("Support Server", "https://discord.gg/VT7EgQ3RQW", true);
+    embed.field("Bot Version", VERSION, true);
     send_embed(ctx, msg, is_error, embed).await;
     Ok(())
 }

@@ -6,6 +6,8 @@ use serde::Deserialize;
 use serenity::{http::client::Http, model::id::UserId, prelude::TypeMapKey};
 use sqlx::{query, sqlite::SqliteConnectOptions, SqlitePool};
 
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// The default config to be written when creating a config file
 const DEFAULT_CONFIG: &str =
     "# The token of the bot: https://discordpy.readthedocs.io/en/latest/discord.html#creating-a-bot-account

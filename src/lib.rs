@@ -43,6 +43,8 @@ pub mod deepspeech;
 pub mod globals;
 /// The module for event handlers
 pub mod handlers;
+/// The module for Statcord utilities
+pub mod statcord;
 /// The module for a few useful utilities
 pub mod utils;
 
