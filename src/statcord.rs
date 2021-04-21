@@ -1,4 +1,3 @@
-use serenity::model::id::UserId;
 use std::sync::atomic::AtomicU64;
 
 pub struct StatcordData {
