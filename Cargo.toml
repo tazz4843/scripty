@@ -29,6 +29,7 @@ dasp_signal = "*"
 num_cpus = "1.13"
 procinfo = ""
 reqwest = "0.11"
+opus = "0.2"
 
 [dependencies.serenity]
 version = "0.10"

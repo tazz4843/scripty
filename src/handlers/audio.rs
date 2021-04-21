@@ -1,4 +1,5 @@
 use crate::{deepspeech::run_stt, utils::DECODE_TYPE};
+use opus::Decoder;
 use serenity::prelude::Context;
 use serenity::{async_trait, model::webhook::Webhook, prelude::RwLock};
 use songbird::{
@@ -98,9 +99,8 @@ impl VoiceEventHandler for Receiver {
                     }
                 };
                 if !*speaking {
-                    match DECODE_TYPE {
+                    let audio = match DECODE_TYPE {
                         DecodeMode::Decrypt => {
-                            // all of this code reeks of https://www.youtube.com/watch?v=lIFE7h3m40U
                             let audio = {
                                 let mut buf = self.encoded_audio_buffer.write().await;
                                 match buf.insert(*ssrc, Vec::new()) {
@@ -114,231 +114,140 @@ impl VoiceEventHandler for Receiver {
                                     }
                                 }
                             };
-                            let file_id = Uuid::new_v4();
-                            let file_path = format!("{}.wav", file_id.as_u128());
-
-                            /*
-                            match OpenOptions::new()
-                                .write(true)
-                                .create(true)
-                                .open(format!("{}.pcm", file_id.as_u128()))
-                                .await
-                            {
-                                Ok(mut f) => {
-                                    for i in audio {
-                                        if let Err(e) = f.write_u8(*i).await {
-                                            println!("Failed to write byte to file! {}", e);
-                                        };
-                                    }
-                                }
+                            let mut decoder = match Decoder::new(16_000, opus::Channels::Stereo) {
+                                Ok(d) => d,
                                 Err(e) => {
-                                    println!("Failed to open/create file! {}", e);
-                                }
-                            };
-                            */
-                            let args = [
-                                "-f", "s16be", "-ar", "8000", "-ac", "1",
-                                // "-acodec",
-                                // "pcm_s16le",
-                                "-i", "-", &file_path,
-                            ];
-
-                            let mut child = match Command::new("ffmpeg")
-                                .args(&args)
-                                .stdin(Stdio::piped())
-                                .stdout(Stdio::null())
-                                .stderr(Stdio::null())
-                                .kill_on_drop(true)
-                                .spawn()
-                            {
-                                Err(e) => {
-                                    println!("Failed to spawn FFMPEG!");
-                                    return None;
-                                }
-                                Ok(c) => {
-                                    println!("Spawned FFMPEG!");
-                                    c
-                                }
-                            };
-
-                            match child.stdin {
-                                Some(ref mut stdin) => {
-                                    for i in audio {
-                                        if let Err(e) = stdin.write_u8(i).await {
-                                            println!("Failed to write byte to FFMPEG stdin! {}", e);
-                                        };
-                                    }
-                                }
-                                None => {
-                                    println!("Failed to open FFMPEG stdin!");
+                                    println!("Creating opus decoder failed: {}", e);
                                     return None;
                                 }
                             };
-                            // we now have a file named "{}.wav" where {} is a random UUID as a 128-bit integer.
-                            // we should yield now to let other tasks proceed
-                            task::yield_now().await;
-                            let webhook = self.webhook.clone();
-                            let context = self.context.clone();
-
-                            task::spawn(async move {
-                                match child.wait().await {
-                                    Ok(_) => {
-                                        match run_stt(file_path.clone()).await {
-                                            Ok(r) => {
-                                                if r.len() != 0 {
-                                                    match context.cache.user(uid).await {
-                                                        Some(u) => {
-                                                            let profile_picture = match u.avatar {
-                                                                Some(a) => {
-                                                                    format!("https://cdn.discordapp.com/avatars/{}/{}.png", u.id, a)
-                                                                }
-                                                                None => u.default_avatar_url(),
-                                                            };
-                                                            let name = u.name;
-
-                                                            let _ = webhook
-                                                                .execute(&context, false, |m| {
-                                                                    m.avatar_url(profile_picture)
-                                                                        .content(r)
-                                                                        .username(name)
-                                                                })
-                                                                .await;
-                                                            // see comments below
-                                                        }
-                                                        None => {}
-                                                    }
-                                                }
-                                            }
-                                            Err(e) => {
-                                                println!("Failed to run speech-to-text! {}", e);
-                                            }
-                                        };
-                                    }
-                                    Err(e) => {
-                                        println!("FFMPEG failed! {}", e);
-                                    }
-                                };
-                                if let Err(e) = tokio::fs::remove_file(&file_path).await {
-                                    println!("Failed to delete {}! {}", &file_path, e);
-                                };
-                            });
+                            let mut v = Vec::new();
+                            match decoder.decode(&audio[..], &mut v, false) {
+                                Ok(s) => {
+                                    println!("Decoded {} opus samples", s);
+                                }
+                                Err(e) => {
+                                    println!("Failed to decode opus: {}", e);
+                                    return None;
+                                }
+                            };
+                            v
                         }
                         DecodeMode::Decode => {
-                            // all of this code reeks of https://www.youtube.com/watch?v=lIFE7h3m40U
-                            let audio = {
-                                let mut buf = self.audio_buffer.write().await;
-                                match buf.insert(*ssrc, Vec::new()) {
-                                    Some(a) => a,
-                                    None => {
-                                        println!(
-                                            "Didn't find a user with SSRC {} in the audio buffers.",
-                                            ssrc
-                                        );
-                                        return None;
-                                    }
-                                }
-                            };
-                            let file_id = Uuid::new_v4();
-                            let file_path = format!("{}.wav", file_id.as_u128());
-
-                            let args = [
-                                "-f",
-                                "s16be",
-                                "-ar",
-                                "8000",
-                                "-ac",
-                                "1",
-                                "-acodec",
-                                "pcm_s16le",
-                                "-i",
-                                "-",
-                                &file_path,
-                            ];
-
-                            let mut child = match Command::new("ffmpeg")
-                                .args(&args)
-                                .stdin(Stdio::piped())
-                                .stdout(Stdio::null())
-                                .stderr(Stdio::inherit())
-                                .kill_on_drop(true)
-                                .spawn()
-                            {
-                                Err(e) => {
-                                    println!("Failed to spawn FFMPEG!");
-                                    return None;
-                                }
-                                Ok(c) => {
-                                    println!("Spawned FFMPEG!");
-                                    c
-                                }
-                            };
-
-                            match child.stdin {
-                                Some(ref mut stdin) => {
-                                    for i in audio {
-                                        if let Err(e) = stdin.write_i16(i).await {
-                                            println!("Failed to write byte to FFMPEG stdin! {}", e);
-                                        };
-                                    }
-                                }
+                            let mut buf = self.audio_buffer.write().await;
+                            match buf.insert(*ssrc, Vec::new()) {
+                                Some(a) => a,
                                 None => {
-                                    println!("Failed to open FFMPEG stdin!");
+                                    println!(
+                                        "Didn't find a user with SSRC {} in the audio buffers.",
+                                        ssrc
+                                    );
                                     return None;
                                 }
-                            };
-                            // we now have a file named "{}.wav" where {} is a random UUID as a 128-bit integer.
-                            // we should yield now to let other tasks proceed
-                            task::yield_now().await;
-                            let webhook = self.webhook.clone();
-                            let context = self.context.clone();
-
-                            task::spawn(async move {
-                                match child.wait().await {
-                                    Ok(_) => {
-                                        match run_stt(file_path.clone()).await {
-                                            Ok(r) => {
-                                                if r.len() != 0 {
-                                                    match context.cache.user(uid).await {
-                                                        Some(u) => {
-                                                            let profile_picture = match u.avatar {
-                                                                Some(a) => {
-                                                                    format!("https://cdn.discordapp.com/avatars/{}/{}.png", u.id, a)
-                                                                }
-                                                                None => u.default_avatar_url(),
-                                                            };
-                                                            let name = u.name;
-
-                                                            let _ = webhook
-                                                                .execute(&context, false, |m| {
-                                                                    m.avatar_url(profile_picture)
-                                                                        .content(r)
-                                                                        .username(name)
-                                                                })
-                                                                .await; // we don't care if the webhook failed
-                                                                        // it might suck for UX but it's a lot harder to keep retrying
-                                                        }
-                                                        None => {}
-                                                    }
-                                                }
-                                            }
-                                            Err(e) => {
-                                                println!("Failed to run speech-to-text! {}", e);
-                                            }
-                                        };
-                                    }
-                                    Err(e) => {
-                                        println!("FFMPEG failed! {}", e);
-                                    }
-                                };
-                                if let Err(e) = tokio::fs::remove_file(&file_path).await {
-                                    println!("Failed to delete {}! {}", &file_path, e);
-                                };
-                            });
+                            }
                         }
                         _ => {
                             println!("Decode mode is invalid!");
+                            return None;
                         }
-                    }
+                    };
+                    // all of this code reeks of https://www.youtube.com/watch?v=lIFE7h3m40U
+                    let file_id = Uuid::new_v4();
+                    let file_path = format!("{}.wav", file_id.as_u128());
+
+                    let args = [
+                        "-f",
+                        "s16le",
+                        "-ar",
+                        "8000",
+                        "-ac",
+                        "1",
+                        "-acodec",
+                        "pcm_s16le",
+                        "-i",
+                        "-",
+                        &file_path,
+                    ];
+
+                    let mut child = match Command::new("ffmpeg")
+                        .args(&args)
+                        .stdin(Stdio::piped())
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null())
+                        .kill_on_drop(true)
+                        .spawn()
+                    {
+                        Err(e) => {
+                            println!("Failed to spawn FFMPEG!");
+                            return None;
+                        }
+                        Ok(c) => {
+                            println!("Spawned FFMPEG!");
+                            c
+                        }
+                    };
+
+                    match child.stdin {
+                        Some(ref mut stdin) => {
+                            for i in audio {
+                                if let Err(e) = stdin.write_i16(i).await {
+                                    println!("Failed to write byte to FFMPEG stdin! {}", e);
+                                };
+                            }
+                        }
+                        None => {
+                            println!("Failed to open FFMPEG stdin!");
+                            return None;
+                        }
+                    };
+                    // we now have a file named "{}.wav" where {} is a random UUID as a 128-bit integer.
+                    // we should yield now to let other tasks proceed
+                    task::yield_now().await;
+                    let webhook = self.webhook.clone();
+                    let context = self.context.clone();
+
+                    task::spawn(async move {
+                        match child.wait().await {
+                            Ok(_) => {
+                                match run_stt(file_path.clone()).await {
+                                    Ok(r) => {
+                                        if r.len() != 0 {
+                                            match context.cache.user(uid).await {
+                                                Some(u) => {
+                                                    let profile_picture = match u.avatar {
+                                                        Some(a) => {
+                                                            format!("https://cdn.discordapp.com/avatars/{}/{}.png", u.id, a)
+                                                        }
+                                                        None => u.default_avatar_url(),
+                                                    };
+                                                    let name = u.name;
+
+                                                    let _ = webhook
+                                                        .execute(&context, false, |m| {
+                                                            m.avatar_url(profile_picture)
+                                                                .content(r)
+                                                                .username(name)
+                                                        })
+                                                        .await;
+                                                    // see comments below
+                                                }
+                                                None => {}
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        println!("Failed to run speech-to-text! {}", e);
+                                    }
+                                };
+                            }
+                            Err(e) => {
+                                println!("FFMPEG failed! {}", e);
+                            }
+                        };
+                        if let Err(e) = tokio::fs::remove_file(&file_path).await {
+                            println!("Failed to delete {}! {}", &file_path, e);
+                        };
+                    });
                 }
                 println!(
                     "Source {} (ID {}) has {} speaking.",
