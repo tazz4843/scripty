@@ -7,7 +7,7 @@ use serenity::{
 use sqlx::{query, Row};
 
 use crate::{
-    globals::{CmdInfo, SqlitePoolKey},
+    globals::{CmdInfo, PgPoolKey},
     log, send_embed,
 };
 
@@ -43,7 +43,7 @@ async fn cmd_prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let mut is_error = true;
 
     let data = ctx.data.read().await;
-    let db = data.get::<SqlitePoolKey>();
+    let db = data.get::<PgPoolKey>();
     let prefix = args.rest().trim();
     let guild_id = msg.guild_id;
 
@@ -130,7 +130,7 @@ pub async fn prefix_check(ctx: &Context, msg: &Message) -> Option<String> {
     }
 
     let data = ctx.data.read().await;
-    let db = match data.get::<SqlitePoolKey>() {
+    let db = match data.get::<PgPoolKey>() {
         Some(db) => db,
         None => {
             log(ctx, "Couldn't get the database for the prefix check").await;

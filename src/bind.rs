@@ -1,4 +1,4 @@
-use crate::globals::SqlitePoolKey;
+use crate::globals::PgPoolKey;
 use crate::handlers::audio::Receiver;
 use serenity::http::CacheHttp;
 use serenity::model::channel::{Channel, ChannelType};
@@ -17,7 +17,7 @@ pub async fn bind(
     guild_id: GuildId,
 ) -> Result<(), String> {
     let data = ctx.data.read().await;
-    let db = data.get::<SqlitePoolKey>();
+    let db = data.get::<PgPoolKey>();
     if db.is_none() {
         return Err("No DB pool found.".to_string());
     };
@@ -44,7 +44,7 @@ pub async fn bind(
         match query("SELECT webhook_token, webhook_id FROM channels WHERE channel_id = ?")
             .bind(i64::from(transcription_channel))
             .fetch_optional(db.unwrap_or_else(|| unsafe {
-                unreachable_unchecked() // why? we've already made 100% sure the DB pool exists above.
+                unreachable_unchecked() // SAFETY: we've already made 100% sure the DB pool exists above.
             }))
             .await
         {
@@ -89,7 +89,7 @@ pub async fn bind(
 
             let ctx1 = Arc::new(ctx.clone());
 
-            let receiver = Receiver::new(webhook, ctx1);
+            let receiver = Receiver::new(webhook, ctx1, 0).await;
 
             let _ = handler.mute(true).await;
 

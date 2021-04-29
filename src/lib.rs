@@ -1,5 +1,6 @@
-#![feature(async_closure)]
-#![feature(in_band_lifetimes)]
+#![feature(async_closure)] // audio.rs
+#![feature(in_band_lifetimes)] // audio.rs
+#![feature(map_first_last)] // audio.rs
 #![deny(unused_must_use)] // because i suck at `.await`ing futures
 #![deny(unused_imports)] // so as not to pollute compiling output
 use crate::{
@@ -37,6 +38,8 @@ pub mod cmd_prefix;
 pub mod cmd_setup;
 /// The module for the `status` command
 pub mod cmd_status;
+/// The module for a subclass of the Opus decoder that supports Send + Sync
+pub mod decoder;
 /// The module for DeepSpeech utils.
 pub mod deepspeech;
 /// The module for the statics and structs to save the statics to
@@ -47,6 +50,8 @@ pub mod handlers;
 pub mod statcord;
 /// The module for a few useful utilities
 pub mod utils;
+/// The module for a subclass of the DeepSpeech model that supports Send + Sync
+pub mod ds_model;
 
 /// The hidden group for all the commands to be added to
 /// - ONLY add your own groups to `sub_groups`

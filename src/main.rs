@@ -16,7 +16,7 @@ use scripty::{
     cmd_error,
     cmd_help::CMD_HELP,
     cmd_prefix::prefix_check,
-    globals::{set_db, BotConfig, BotInfo, CmdInfo, SqlitePoolKey},
+    globals::{set_db, BotConfig, BotInfo, CmdInfo, PgPoolKey},
     print_and_write, set_dir,
     utils::{ShardManagerWrapper, DECODE_TYPE},
     CONFIG_GROUP, GENERAL_GROUP, MASTER_GROUP, UTILS_GROUP, VOICE_GROUP,
@@ -107,14 +107,14 @@ async fn main() {
             is_loop_running: AtomicBool::new(false),
             start_time: client_init_start,
         })
-        .type_map_insert::<SqlitePoolKey>(db)
+        .type_map_insert::<PgPoolKey>(db)
         .framework(framework)
         .register_songbird_with(songbird)
         .await
         .expect("Couldn't create the client");
     {
-        let mut data = client.data.write().await;
-        data.insert::<ShardManagerWrapper>(Arc::new(RwLock::new(client.shard_manager.clone())))
+        let mut type_map = client.data.write().await;
+        type_map.insert::<ShardManagerWrapper>(Arc::new(RwLock::new(client.shard_manager.clone())));
     }
     println!(
         "Initialized client in {}ms!",

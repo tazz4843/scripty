@@ -1,10 +1,11 @@
 use std::{convert::TryFrom, fs, io, path::Path};
-
-use deepspeech::Model;
+use crate::ds_model::DsModel;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
 use serenity::{http::client::Http, model::id::UserId, prelude::TypeMapKey};
-use sqlx::{query, sqlite::SqliteConnectOptions, SqlitePool};
+use sqlx::{postgres::PgConnectOptions, query, PgPool, Pool, Postgres};
+use std::sync::Arc;
+use serenity::prelude::RwLock;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -36,9 +37,14 @@ deepspeech_path = \"/home/user/deepspeech\"
 ";
 
 /// The struct to implement TypeMapKey for, use this to get the SqlitePool from `ctx.data`
-pub struct SqlitePoolKey;
-impl TypeMapKey for SqlitePoolKey {
-    type Value = SqlitePool;
+pub struct PgPoolKey;
+impl TypeMapKey for PgPoolKey {
+    type Value = Pool<Postgres>;
+}
+
+pub struct DsModelKey;
+impl TypeMapKey for DsModelKey {
+    type Value = Arc<RwLock<DsModel>>;
 }
 
 /// 1. Opens a connection pool to the database file at the config file, creating it if it doesn't exist
@@ -47,18 +53,24 @@ impl TypeMapKey for SqlitePoolKey {
 /// # Panics
 /// - If BotConfig isn't initialised
 /// - Or if connecting to it failed
-pub async fn set_db() -> SqlitePool {
-    let db_filename = BotConfig::get()
-        .expect("Couldn't get BOT_CONFIG to get the database file")
-        .database_file
-        .as_str();
-    let db = SqlitePool::connect_with(
-        SqliteConnectOptions::new()
-            .filename(db_filename)
-            .create_if_missing(true),
-    )
-    .await
-    .expect("Couldn't connect to the database");
+pub async fn set_db() -> Pool<Postgres> {
+    let config = BotConfig::get().expect("Couldn't get BOT_CONFIG to get the database file");
+    let db_host = &config.host;
+    let db_user = &config.user;
+    let db_password = &config.password;
+    let db_port = config.port;
+    let db_db = &config.db;
+    let db_conn_options = PgConnectOptions::new();
+    let db = PgPool::connect_with(db_conn_options
+        .host(db_host)
+        .username(db_user)
+        .port(db_port)
+        .database(db_db)
+        .application_name("scripty")
+        .password(db_password)
+        .statement_cache_capacity(1000_usize))
+        .await
+        .expect("Couldn't connect to DB");
 
     query(
         "CREATE TABLE IF NOT EXISTS prefixes (
@@ -105,7 +117,7 @@ pub async fn set_db() -> SqlitePool {
 }
 
 //noinspection SpellCheckingInspection
-pub async fn set_model() -> Model {
+pub async fn set_model() -> DsModel {
     let model_dir_str = BotConfig::get()
         .expect("Couldn't get BOT_CONFIG to get the model path")
         .model_path
@@ -131,7 +143,7 @@ pub async fn set_model() -> Model {
             }
         }
     }
-    let mut m = Model::load_from_files(&graph_name).expect("Failed to load model!");
+    let mut m = DsModel::new(&graph_name);
     // enable external scorer if found in the model folder
     if let Some(scorer) = scorer_name {
         println!(
@@ -140,7 +152,7 @@ pub async fn set_model() -> Model {
                 .to_str()
                 .expect("Failed to convert scorer to string!")
         );
-        m.enable_external_scorer(&scorer)
+        m.model.write().expect("lock was poisoned").enable_external_scorer(&scorer)
             .expect("Failed to initalize scorer!");
     }
 
@@ -153,11 +165,15 @@ pub struct BotConfig {
     token: String,
     log_file: String,
     log_guild_added: bool,
-    database_file: String,
     invite: String,
     github: String,
     colour: u32,
     model_path: String,
+    host: String,
+    user: String,
+    password: String,
+    port: u16,
+    db: String,
 }
 
 /// The static to hold the struct, so that it's global

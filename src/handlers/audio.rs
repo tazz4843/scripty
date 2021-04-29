@@ -1,5 +1,4 @@
-use crate::{deepspeech::run_stt, utils::DECODE_TYPE};
-use opus::Decoder;
+use crate::{decoder::Decoder, deepspeech::run_stt, utils::DECODE_TYPE};
 use serenity::prelude::Context;
 use serenity::{async_trait, model::webhook::Webhook, prelude::RwLock};
 use songbird::{
@@ -10,33 +9,60 @@ use songbird::{
     },
     Event, EventContext, EventHandler as VoiceEventHandler,
 };
+use std::collections::BTreeSet;
 use std::{collections::HashMap, process::Stdio, sync::Arc};
 use tokio::{io::AsyncWriteExt, process::Command, task};
 use uuid::Uuid;
+use std::hint::unreachable_unchecked;
+use crate::ds_model::DsModel;
+use crate::globals::DsModelKey;
+
+fn do_check(
+    user_id: &UserId,
+    active_users: &tokio::sync::RwLockReadGuard<BTreeSet<UserId>>,
+) -> bool {
+    active_users.get(user_id).is_some()
+}
 
 #[derive(Clone)]
 pub struct Receiver {
     ssrc_map: Arc<RwLock<HashMap<u32, UserId>>>,
     audio_buffer: Arc<RwLock<HashMap<u32, Vec<i16>>>>,
-    encoded_audio_buffer: Arc<RwLock<HashMap<u32, Vec<u8>>>>,
+    encoded_audio_buffer: Arc<RwLock<HashMap<u32, Vec<i16>>>>,
+    decoders: Arc<RwLock<HashMap<u32, Decoder>>>,
+    active_users: Arc<RwLock<BTreeSet<UserId>>>,
+    next_users: Arc<RwLock<BTreeSet<UserId>>>,
+    model: Arc<RwLock<DsModel>>,
     webhook: Arc<Webhook>,
     context: Arc<Context>,
+    premium_level: u8,
+    max_users: u32, // seriously if it hits 65535 users in a VC wtf
 }
 
 impl Receiver {
-    pub fn new(webhook: Webhook, context: Arc<Context>) -> Self {
+    pub async fn new(webhook: Webhook, context: Arc<Context>, premium_level: u8) -> Self {
         // You can manage state here, such as a buffer of audio packet bytes so
         // you can later store them in intervals.
         let ssrc_map = Arc::new(RwLock::new(HashMap::new()));
         let audio_buffer = Arc::new(RwLock::new(HashMap::new()));
         let encoded_audio_buffer = Arc::new(RwLock::new(HashMap::new()));
+        let decoders = Arc::new(RwLock::new(HashMap::new()));
         let webhook = Arc::new(webhook);
+        let active_users = Arc::new(RwLock::new(BTreeSet::new()));
+        let next_users = Arc::new(RwLock::new(BTreeSet::new()));
+        let model = context.data.read().await.get::<DsModelKey>().expect("DsModel placed in at initialization.").clone();
         Self {
             ssrc_map,
             audio_buffer,
             encoded_audio_buffer,
+            decoders,
             webhook,
             context,
+            premium_level,
+            active_users,
+            next_users,
+            max_users: 10,
+            model,
         }
     }
 }
@@ -70,13 +96,24 @@ impl VoiceEventHandler for Receiver {
                     "Speaking state update: user {:?} has SSRC {:?}, using {:?}",
                     user_id, ssrc, speaking,
                 );
+
                 if let Some(user_id) = user_id {
+                    if !do_check(&user_id, &self.active_users.read().await) {
+                        return None;
+                    }
+
                     let mut map = self.ssrc_map.write().await;
                     map.insert(*ssrc, *user_id);
                     match DECODE_TYPE {
                         DecodeMode::Decrypt => {
-                            let mut audio_buf = self.encoded_audio_buffer.write().await;
-                            audio_buf.insert(*ssrc, Vec::new());
+                            {
+                                let mut audio_buf = self.encoded_audio_buffer.write().await;
+                                audio_buf.insert(*ssrc, Vec::new());
+                            }
+                            {
+                                let mut decoders = self.decoders.write().await;
+                                decoders.insert(*ssrc, Decoder::new());
+                            }
                         }
                         DecodeMode::Decode => {
                             let mut audio_buf = self.audio_buffer.write().await;
@@ -98,10 +135,18 @@ impl VoiceEventHandler for Receiver {
                         None => 0,
                     }
                 };
+                if !do_check(&UserId(uid), &self.active_users.read().await) {
+                    return None;
+                };
+
                 if !*speaking {
                     let audio = match DECODE_TYPE {
                         DecodeMode::Decrypt => {
-                            let audio = {
+                            {
+                                let mut decoders = self.decoders.write().await;
+                                decoders.insert(*ssrc, Decoder::new());
+                            }
+                            {
                                 let mut buf = self.encoded_audio_buffer.write().await;
                                 match buf.insert(*ssrc, Vec::new()) {
                                     Some(a) => a,
@@ -113,25 +158,7 @@ impl VoiceEventHandler for Receiver {
                                         return None;
                                     }
                                 }
-                            };
-                            let mut decoder = match Decoder::new(16_000, opus::Channels::Stereo) {
-                                Ok(d) => d,
-                                Err(e) => {
-                                    println!("Creating opus decoder failed: {}", e);
-                                    return None;
-                                }
-                            };
-                            let mut v = Vec::new();
-                            match decoder.decode(&audio[..], &mut v, false) {
-                                Ok(s) => {
-                                    println!("Decoded {} opus samples", s);
-                                }
-                                Err(e) => {
-                                    println!("Failed to decode opus: {}", e);
-                                    return None;
-                                }
-                            };
-                            v
+                            }
                         }
                         DecodeMode::Decode => {
                             let mut buf = self.audio_buffer.write().await;
@@ -155,9 +182,13 @@ impl VoiceEventHandler for Receiver {
                     let file_id = Uuid::new_v4();
                     let file_path = format!("{}.wav", file_id.as_u128());
 
+                    /*
+                    // ffmpeg args
                     let args = [
                         "-f",
-                        "s16le",
+                        "s16be",
+                        "-c",
+                        "pcm_s16be",
                         "-ar",
                         "8000",
                         "-ac",
@@ -168,12 +199,29 @@ impl VoiceEventHandler for Receiver {
                         "-",
                         &file_path,
                     ];
+                    */
 
-                    let mut child = match Command::new("ffmpeg")
+                    // sox args
+                    let args = [
+                        "-t",
+                        "raw",
+                        "-b",
+                        "16",
+                        "-e",
+                        "signed-integer",
+                        "-r",
+                        "16000",
+                        "-",
+                        "-c",
+                        "1",
+                        &file_path,
+                    ];
+
+                    let mut child = match Command::new("sox")
                         .args(&args)
                         .stdin(Stdio::piped())
-                        .stdout(Stdio::null())
-                        .stderr(Stdio::null())
+                        .stdout(Stdio::inherit())
+                        .stderr(Stdio::inherit())
                         .kill_on_drop(true)
                         .spawn()
                     {
@@ -192,6 +240,10 @@ impl VoiceEventHandler for Receiver {
                             for i in audio {
                                 if let Err(e) = stdin.write_i16(i).await {
                                     println!("Failed to write byte to FFMPEG stdin! {}", e);
+                                    return None;
+                                    // the audio's now corrupted, no point in continuing
+                                    // plus if this happens once it'll happen every time after,
+                                    // and that gets spammy as hell
                                 };
                             }
                         }
@@ -203,13 +255,14 @@ impl VoiceEventHandler for Receiver {
                     // we now have a file named "{}.wav" where {} is a random UUID as a 128-bit integer.
                     // we should yield now to let other tasks proceed
                     task::yield_now().await;
-                    let webhook = self.webhook.clone();
-                    let context = self.context.clone();
+                    let webhook = Arc::clone(&self.webhook);
+                    let context = Arc::clone(&self.context);
+                    let model = &self.model.read().await.model.read();
 
                     task::spawn(async move {
                         match child.wait().await {
                             Ok(_) => {
-                                match run_stt(file_path.clone()).await {
+                                match run_stt(file_path.clone(), model).await {
                                     Ok(r) => {
                                         if r.len() != 0 {
                                             match context.cache.user(uid).await {
@@ -229,7 +282,6 @@ impl VoiceEventHandler for Receiver {
                                                                 .username(name)
                                                         })
                                                         .await;
-                                                    // see comments below
                                                 }
                                                 None => {}
                                             }
@@ -266,13 +318,17 @@ impl VoiceEventHandler for Receiver {
                 // containing the decoded data.
 
                 let uid: u64 = {
-                    // block that will drop lock when exited
                     let map = self.ssrc_map.read().await;
                     match map.get(&packet.ssrc) {
                         Some(u) => u.to_string().parse().unwrap(),
                         None => 0,
                     }
                 };
+
+                if !do_check(&UserId(uid), &self.active_users.read().await) {
+                    return None;
+                };
+
                 match audio {
                     Some(audio) => {
                         let mut buf = self.audio_buffer.write().await;
@@ -285,6 +341,7 @@ impl VoiceEventHandler for Receiver {
                         b.extend(audio);
                     }
                     _ => {
+                        /*
                         let audio_range: &usize = &(packet.payload.len() - payload_end_pad);
                         let range = std::ops::Range {
                             start: payload_offset,
@@ -307,17 +364,32 @@ impl VoiceEventHandler for Receiver {
                                 b.push(*i)
                             }
                         }
+                        */
+                        let mut audio = {
+                            let mut decoders = self.decoders.write().await;
+                            let decoder = decoders
+                                .get_mut(&packet.ssrc)
+                                .unwrap_or_else(|| unsafe {
+                                    unreachable_unchecked() // SAFETY: shouldn't ever happen... hopefully
+                                });
+                            let mut v = Vec::new();
+                            match decoder.opus_decoder.decode(&packet.payload, &mut v, false) {
+                                Ok(s) => {
+                                    println!("Decoded {} opus samples", s);
+                                }
+                                Err(e) => {
+                                    println!("Failed to decode opus: {}", e);
+                                    return None;
+                                }
+                            };
+                            v
+                        };
+                        let mut buf = self.encoded_audio_buffer.write().await;
+                        if let Some(b) = buf.get_mut(&packet.ssrc) {
+                            b.append(&mut audio);
+                        };
                     }
                 }
-            }
-            Ctx::RtcpPacket {
-                packet,
-                payload_offset,
-                payload_end_pad,
-            } => {
-                // An event which fires for every received rtcp packet,
-                // containing the call statistics and reporting information.
-                // Probably ignorable for our purposes.
             }
             Ctx::ClientConnect(ClientConnect {
                 audio_ssrc,
@@ -328,9 +400,21 @@ impl VoiceEventHandler for Receiver {
                 // You can implement your own logic here to handle a user who has joined the
                 // voice channel e.g., allocate structures, map their SSRC to User ID.
                 {
-                    // block that will drop the lock when exited
                     let mut map = self.ssrc_map.write().await;
                     map.insert(*audio_ssrc, *user_id);
+                }
+                {
+                    let mut decoders = self.decoders.write().await;
+                    decoders.insert(*audio_ssrc, Decoder::new());
+                }
+                {
+                    let mut active_users = self.active_users.write().await;
+                    if active_users.len() > self.max_users as usize {
+                        let mut next_users = self.next_users.write().await;
+                        next_users.insert(*user_id);
+                    } else {
+                        active_users.insert(*user_id);
+                    };
                 }
                 println!(
                     "Client connected: user {:?} has audio SSRC {:?}, video SSRC {:?}",
@@ -342,7 +426,7 @@ impl VoiceEventHandler for Receiver {
                 // voice channel e.g., finalise processing of statistics etc.
                 // You will typically need to map the User ID to their SSRC; observed when
                 // speaking or connecting.
-                let key: Option<u32> = {
+                if let Some(u) = {
                     let map = self.ssrc_map.read().await;
                     let mut id: Option<u32> = None;
                     for i in map.iter() {
@@ -353,31 +437,36 @@ impl VoiceEventHandler for Receiver {
                         }
                     }
                     id
-                };
-                if let Some(u) = key {
-                    match DECODE_TYPE {
-                        DecodeMode::Decrypt => {
-                            let mut audio_buf = self.encoded_audio_buffer.write().await;
-                            audio_buf.remove(&u);
-                        }
-                        DecodeMode::Decode => {
-                            let mut audio_buf = self.audio_buffer.write().await;
-                            audio_buf.remove(&u);
-                        }
-                        _ => {
-                            unimplemented!("No supported decode mode found!")
-                        }
+                } {
+                    {
+                        let mut audio_buf = self.encoded_audio_buffer.write().await;
+                        audio_buf.remove(&u);
                     }
-                    let mut map = self.ssrc_map.write().await;
-                    map.remove(&u);
+                    {
+                        let mut audio_buf = self.audio_buffer.write().await;
+                        audio_buf.remove(&u);
+                    }
+                    {
+                        let mut decoders = self.decoders.write().await;
+                        decoders.remove(&u);
+                    }
+                    {
+                        let mut map = self.ssrc_map.write().await;
+                        map.remove(&u);
+                    }
+                    {
+                        let mut active_users = self.active_users.write().await;
+                        active_users.remove(user_id);
+                        let mut next_users = self.next_users.write().await;
+                        if let Some(user) = next_users.pop_first() {
+                            active_users.insert(user);
+                        };
+                    }
                 };
 
                 println!("Client disconnected: user {:?}", user_id);
             }
-            _ => {
-                // We won't be registering this struct for any more event classes.
-                unimplemented!()
-            }
+            _ => {}
         }
 
         None

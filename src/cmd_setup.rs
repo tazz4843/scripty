@@ -11,7 +11,7 @@ use serenity::{
 };
 use sqlx::query;
 
-use crate::{bind, globals::SqlitePoolKey, log, send_embed};
+use crate::{bind, globals::PgPoolKey, log, send_embed};
 use std::{str::FromStr, sync::Arc};
 use tokio::time::Duration;
 
@@ -30,7 +30,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
     let mut is_error = true;
 
     let data = ctx.data.read().await;
-    let db = data.get::<SqlitePoolKey>();
+    let db = data.get::<PgPoolKey>();
     let guild_id = msg.guild_id;
 
     if guild_id.is_none() {

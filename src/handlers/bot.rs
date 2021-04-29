@@ -1,4 +1,4 @@
-use crate::globals::SqlitePoolKey;
+use crate::globals::PgPoolKey;
 use crate::{bind, globals::BotConfig, utils::do_stats_update};
 use serenity::futures::TryStreamExt;
 use serenity::{
@@ -76,7 +76,7 @@ impl EventHandler for Handler {
             tokio::spawn(async move {
                 loop {
                     let data = ctx2.data.read().await;
-                    let pool = data.get::<SqlitePoolKey>().unwrap_or_else(|| unsafe {
+                    let pool = data.get::<PgPoolKey>().unwrap_or_else(|| unsafe {
                         hint::unreachable_unchecked()
                         // SAFETY: this should absolutely never happen if the DB pool is placed
                         // in at initialization. if that were to happen, undefined behavior would result anyways
