@@ -238,13 +238,13 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
             }
         };
 
-        match query(
-            "INSERT OR REPLACE INTO guilds (guild_id, default_bind, output_channel)
-            VALUES(?, ?, ?);",
+        match query!(
+            "INSERT INTO guilds (guild_id, default_bind, output_channel)
+            VALUES ($1, $2, $3) ON CONFLICT (guild_id) DO UPDATE SET default_bind = $2, output_channel = $3;",
+            guild_id.0 as i64,
+            voice_id as i64,
+            result_id as i64,
         )
-        .bind(guild_id.0 as i64)
-        .bind(voice_id as i64)
-        .bind(result_id as i64)
         .execute(db)
         .await
         {
@@ -257,18 +257,18 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                     );
             }
             _ => {
-                match query(
-                    "INSERT OR REPLACE INTO channels (channel_id, webhook_token, webhook_id)
-            VALUES(?, ?, ?);",
+                match query!(
+                    "INSERT INTO channels (channel_id, webhook_token, webhook_id)
+            VALUES($1, $2, $3) ON CONFLICT DO NOTHING;",
+                    result_id as i64,
+                    token,
+                    i64::from(id)
                 )
-                .bind(result_id as i64)
-                .bind(token)
-                .bind(i64::from(id))
                 .execute(db)
                 .await
                 {
                     Err(err) => {
-                        log(ctx, format!("Couldn't insert to channels: {}", err)).await;
+                        log(ctx, format!("Couldn't insert to channels: {:?}", err)).await;
                         embed
                             .title("Ugh, I couldn't write that down..")
                             .description(

@@ -1,11 +1,9 @@
 use std::{convert::TryFrom, fs, io, path::Path};
-use crate::ds_model::DsModel;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
 use serenity::{http::client::Http, model::id::UserId, prelude::TypeMapKey};
 use sqlx::{postgres::PgConnectOptions, query, PgPool, Pool, Postgres};
-use std::sync::Arc;
-use serenity::prelude::RwLock;
+use deepspeech::Model;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -42,11 +40,6 @@ impl TypeMapKey for PgPoolKey {
     type Value = Pool<Postgres>;
 }
 
-pub struct DsModelKey;
-impl TypeMapKey for DsModelKey {
-    type Value = Arc<RwLock<DsModel>>;
-}
-
 /// 1. Opens a connection pool to the database file at the config file, creating it if it doesn't exist
 /// 2. Runs the query given, creating the `prefixes` table (You should add your own things to it to prepare the database)
 /// - DO NOT modify the `prefixes` table yourself!
@@ -72,42 +65,43 @@ pub async fn set_db() -> Pool<Postgres> {
         .await
         .expect("Couldn't connect to DB");
 
-    query(
+    query!(
         "CREATE TABLE IF NOT EXISTS prefixes (
-        guild_id INTEGER PRIMARY KEY,
+        guild_id BIGINT PRIMARY KEY,
         prefix TEXT
-    ) WITHOUT ROWID",
+    )",
     )
     .execute(&db)
     .await
     .expect("Couldn't create the prefix table.");
 
-    query(
+    query!(
         "CREATE TABLE IF NOT EXISTS guilds (
-        guild_id INTEGER PRIMARY KEY,
-        default_bind INTEGER,
-        output_channel INTEGER
-    ) WITHOUT ROWID",
+        guild_id BIGINT PRIMARY KEY,
+        default_bind BIGINT,
+        output_channel BIGINT,
+        premium_level SMALLINT
+    )",
     )
     .execute(&db)
     .await
     .expect("Couldn't create the guild table.");
 
-    query(
+    query!(
         "CREATE TABLE IF NOT EXISTS users (
-        user_id INTEGER PRIMARY KEY
-    ) WITHOUT ROWID",
+        user_id BIGINT PRIMARY KEY
+    )",
     )
     .execute(&db)
     .await
     .expect("Couldn't create the users table.");
 
-    query(
+    query!(
         "CREATE TABLE IF NOT EXISTS channels (
-        channel_id INTEGER PRIMARY KEY,
+        channel_id BIGINT PRIMARY KEY,
         webhook_token TEXT,
-        webhook_id INTEGER
-    ) WITHOUT ROWID",
+        webhook_id BIGINT
+    )",
     )
     .execute(&db)
     .await
@@ -117,7 +111,7 @@ pub async fn set_db() -> Pool<Postgres> {
 }
 
 //noinspection SpellCheckingInspection
-pub async fn set_model() -> DsModel {
+pub async fn set_model() -> Model {
     let model_dir_str = BotConfig::get()
         .expect("Couldn't get BOT_CONFIG to get the model path")
         .model_path
@@ -143,7 +137,7 @@ pub async fn set_model() -> DsModel {
             }
         }
     }
-    let mut m = DsModel::new(&graph_name);
+    let mut m = Model::load_from_files(&graph_name).expect("failed to load DS model");
     // enable external scorer if found in the model folder
     if let Some(scorer) = scorer_name {
         println!(
@@ -152,7 +146,7 @@ pub async fn set_model() -> DsModel {
                 .to_str()
                 .expect("Failed to convert scorer to string!")
         );
-        m.model.write().expect("lock was poisoned").enable_external_scorer(&scorer)
+        m.enable_external_scorer(&scorer)
             .expect("Failed to initalize scorer!");
     }
 

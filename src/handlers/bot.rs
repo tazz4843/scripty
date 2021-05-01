@@ -9,7 +9,6 @@ use serenity::{
         id::GuildId,
     },
 };
-use sqlx::Row;
 use std::{
     hint,
     sync::{
@@ -81,17 +80,12 @@ impl EventHandler for Handler {
                         // SAFETY: this should absolutely never happen if the DB pool is placed
                         // in at initialization. if that were to happen, undefined behavior would result anyways
                     });
-                    let mut query = sqlx::query("SELECT * FROM main.guilds").fetch(pool);
+                    let mut query = sqlx::query!("SELECT * FROM guilds").fetch(pool);
                     loop {
                         match query.try_next().await {
                             Ok(row) => match row {
                                 Some(row) => {
-                                    let guild_id = match row.try_get::<i64, usize>(0) {
-                                        Ok(val) => val as u64,
-                                        Err(_) => {
-                                            continue;
-                                        }
-                                    };
+                                    let guild_id = row.guild_id;
 
                                     if let Some(_) = songbird::get(&ctx2)
                                         .await
@@ -99,29 +93,25 @@ impl EventHandler for Handler {
                                             hint::unreachable_unchecked() // SAFETY: this should absolutely never happen if Songbird is registered at client init.
                                                                           // if it isn't registered, UB would result anyways
                                         })
-                                        .get::<u64>(guild_id.into())
+                                        .get::<u64>(guild_id as u64)
                                     {
                                         continue;
                                     };
 
-                                    let vc_id = match row.try_get::<i64, usize>(1) {
-                                        Ok(val) => val as u64,
-                                        Err(_) => {
-                                            continue;
-                                        }
+                                    let vc_id = match row.default_bind {
+                                        Some(v) => v,
+                                        None => { continue; }
                                     };
-                                    let result_id = match row.try_get::<i64, usize>(2) {
-                                        Ok(val) => val as u64,
-                                        Err(_) => {
-                                            continue;
-                                        }
+                                    let result_id = match row.output_channel {
+                                        Some(v) => v,
+                                        None => { continue; }
                                     };
 
                                     let _ = bind::bind(
                                         &ctx,
-                                        vc_id.into(),
-                                        result_id.into(),
-                                        guild_id.into(),
+                                        (vc_id as u64).into(),
+                                        (result_id as u64).into(),
+                                        (guild_id as u64).into(),
                                     )
                                     .await;
                                 }

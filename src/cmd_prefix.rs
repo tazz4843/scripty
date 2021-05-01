@@ -4,7 +4,7 @@ use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     model::channel::Message,
 };
-use sqlx::{query, Row};
+use sqlx::{query};
 
 use crate::{
     globals::{CmdInfo, PgPoolKey},
@@ -69,12 +69,18 @@ async fn cmd_prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             embed
                 .title("Your prefix can't be longer than 10 characters")
                 .description("Why would you want it that long anyway..");
-        } else if let Err(err) = query(
-            "INSERT OR REPLACE INTO prefixes (guild_id, prefix)
-                VALUES(?, ?);",
+        } else if let Err(err) = query!(
+            "INSERT INTO prefixes
+                 (guild_id, prefix)
+             VALUES
+                 ($1, $2)
+             ON CONFLICT
+                 (guild_id)
+             DO UPDATE SET
+                 prefix = $2;",
+            guild_id.0 as i64,
+            prefix,
         )
-        .bind(guild_id.0 as i64)
-        .bind(prefix)
         .execute(db)
         .await
         {
@@ -138,8 +144,14 @@ pub async fn prefix_check(ctx: &Context, msg: &Message) -> Option<String> {
         }
     };
 
-    match query("SELECT prefix FROM prefixes WHERE guild_id = ?")
-        .bind(guild_id.0 as i64)
+    match query!(
+        "SELECT
+           prefix
+         FROM
+           prefixes
+         WHERE
+           guild_id = $1",
+        guild_id.0 as i64)
         .fetch_optional(db)
         .await
     {
@@ -151,19 +163,12 @@ pub async fn prefix_check(ctx: &Context, msg: &Message) -> Option<String> {
                     err
                 ),
             )
-            .await;
+                .await;
             None
         }
-        Ok(row) => match row?.try_get(0) {
-            Ok(prefix) => prefix,
-            Err(err) => {
-                log(
-                    ctx,
-                    format!("Couldn't get the prefix column for the guild: {:?}", err),
-                )
-                .await;
-                None
-            }
+        Ok(row) => match row {
+            Some(row) => row.prefix,
+            None => None,
         },
     }
 }

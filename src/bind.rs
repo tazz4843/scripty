@@ -5,7 +5,7 @@ use serenity::model::channel::{Channel, ChannelType};
 use serenity::model::id::{ChannelId, GuildId};
 use serenity::prelude::Context;
 use songbird::CoreEvent;
-use sqlx::{query, Row};
+use sqlx::{query};
 use std::convert::TryInto;
 use std::hint::unreachable_unchecked;
 use std::sync::Arc;
@@ -41,8 +41,7 @@ pub async fn bind(
     }
 
     let (token, id): (String, u64) =
-        match query("SELECT webhook_token, webhook_id FROM channels WHERE channel_id = ?")
-            .bind(i64::from(transcription_channel))
+        match query!("SELECT webhook_token, webhook_id FROM channels WHERE channel_id = $1", i64::from(transcription_channel))
             .fetch_optional(db.unwrap_or_else(|| unsafe {
                 unreachable_unchecked() // SAFETY: we've already made 100% sure the DB pool exists above.
             }))
@@ -54,16 +53,16 @@ pub async fn bind(
                     None => return Err("Channel not found in DB.".to_string()),
                 };
 
-                let token = match result.try_get(0) {
-                    Ok(r) => r,
-                    Err(e) => return Err(format!("Couldn't get webhook token from DB: {:?}", e)),
+                let token = match result.webhook_token {
+                    Some(r) => r,
+                    None => return Err(format!("Couldn't get webhook token from DB")),
                 };
-                let id = match result.try_get::<i64, usize>(1) {
-                    Ok(r) => match r.try_into() {
+                let id = match result.webhook_id {
+                    Some(r) => match r.try_into() {
                         Ok(r) => r,
                         Err(e) => return Err(format!("Couldn't convert webhook ID to i64: {}", e)),
                     },
-                    Err(e) => return Err(format!("Couldn't get webhook ID: {:?}", e)),
+                    None => return Err(format!("Couldn't get webhook ID")),
                 };
                 (token, id)
             }

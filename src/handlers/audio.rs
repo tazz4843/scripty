@@ -14,8 +14,6 @@ use std::{collections::HashMap, process::Stdio, sync::Arc};
 use tokio::{io::AsyncWriteExt, process::Command, task};
 use uuid::Uuid;
 use std::hint::unreachable_unchecked;
-use crate::ds_model::DsModel;
-use crate::globals::DsModelKey;
 
 fn do_check(
     user_id: &UserId,
@@ -32,7 +30,6 @@ pub struct Receiver {
     decoders: Arc<RwLock<HashMap<u32, Decoder>>>,
     active_users: Arc<RwLock<BTreeSet<UserId>>>,
     next_users: Arc<RwLock<BTreeSet<UserId>>>,
-    model: Arc<RwLock<DsModel>>,
     webhook: Arc<Webhook>,
     context: Arc<Context>,
     premium_level: u8,
@@ -50,7 +47,6 @@ impl Receiver {
         let webhook = Arc::new(webhook);
         let active_users = Arc::new(RwLock::new(BTreeSet::new()));
         let next_users = Arc::new(RwLock::new(BTreeSet::new()));
-        let model = context.data.read().await.get::<DsModelKey>().expect("DsModel placed in at initialization.").clone();
         Self {
             ssrc_map,
             audio_buffer,
@@ -62,7 +58,6 @@ impl Receiver {
             active_users,
             next_users,
             max_users: 10,
-            model,
         }
     }
 }
@@ -257,12 +252,11 @@ impl VoiceEventHandler for Receiver {
                     task::yield_now().await;
                     let webhook = Arc::clone(&self.webhook);
                     let context = Arc::clone(&self.context);
-                    let model = &self.model.read().await.model.read();
 
                     task::spawn(async move {
                         match child.wait().await {
                             Ok(_) => {
-                                match run_stt(file_path.clone(), model).await {
+                                match run_stt(file_path.clone()).await {
                                     Ok(r) => {
                                         if r.len() != 0 {
                                             match context.cache.user(uid).await {
