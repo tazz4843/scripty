@@ -1,6 +1,5 @@
 use crate::{decoder::Decoder, deepspeech::run_stt, utils::DECODE_TYPE};
-use serenity::prelude::Context;
-use serenity::{async_trait, model::webhook::Webhook, prelude::RwLock};
+use serenity::{async_trait, model::webhook::Webhook, prelude::{RwLock, Context}};
 use songbird::{
     driver::DecodeMode,
     model::{
@@ -9,17 +8,15 @@ use songbird::{
     },
     Event, EventContext, EventHandler as VoiceEventHandler,
 };
-use std::collections::BTreeSet;
-use std::{collections::HashMap, process::Stdio, sync::Arc};
+use std::{collections::{HashMap, BTreeSet}, process::Stdio, sync::Arc};
 use tokio::{io::AsyncWriteExt, process::Command, task};
 use uuid::Uuid;
-use std::hint::unreachable_unchecked;
 
 fn do_check(
     user_id: &UserId,
     active_users: &tokio::sync::RwLockReadGuard<BTreeSet<UserId>>,
 ) -> bool {
-    active_users.get(user_id).is_some()
+    active_users.get(user_id).is_none()
 }
 
 #[derive(Clone)]
@@ -94,6 +91,7 @@ impl VoiceEventHandler for Receiver {
 
                 if let Some(user_id) = user_id {
                     if !do_check(&user_id, &self.active_users.read().await) {
+                        println!("user failed the checks");
                         return None;
                     }
 
@@ -177,42 +175,70 @@ impl VoiceEventHandler for Receiver {
                     let file_id = Uuid::new_v4();
                     let file_path = format!("{}.wav", file_id.as_u128());
 
-                    /*
                     // ffmpeg args
                     let args = [
                         "-f",
-                        "s16be",
-                        "-c",
-                        "pcm_s16be",
+                        "s16le",
                         "-ar",
-                        "8000",
+                        "48000",
                         "-ac",
-                        "1",
-                        "-acodec",
-                        "pcm_s16le",
+                        "2",
                         "-i",
                         "-",
+                        "-ac",
+                        "1",
                         &file_path,
+                    ];
+
+                    /*
+                    // sox args
+                    let args = [
+                        // INPUT FILE
+                        // 16 bits
+                        "-b",
+                        "16",
+                        // 16kHz sample rate
+                        "-r",
+                        "16000",
+                        // stereo audio
+                        "-c",
+                        "2",
+                        // raw PCM data
+                        "-t",
+                        "raw",
+                        // little-endian
+                        "-L",
+                        // signed integers
+                        "-e",
+                        "signed-integer",
+                        // stdin contains the file
+                        "-",
+
+                        // OUTPUT FILE
+                        // 16 bits
+                        "-b",
+                        "16",
+                        // 16kHz sample rate
+                        "-r",
+                        "48000",
+                        // mono audio
+                        "-c",
+                        "1",
+                        // signed integers
+                        "-e",
+                        "signed-integer",
+                        // wav output
+                        "-t",
+                        "wav",
+                        &file_path,
+
+                        // EFFECTS
+                        "speed",
+                        "50"
                     ];
                     */
 
-                    // sox args
-                    let args = [
-                        "-t",
-                        "raw",
-                        "-b",
-                        "16",
-                        "-e",
-                        "signed-integer",
-                        "-r",
-                        "16000",
-                        "-",
-                        "-c",
-                        "1",
-                        &file_path,
-                    ];
-
-                    let mut child = match Command::new("sox")
+                    let mut child = match Command::new("ffmpeg")
                         .args(&args)
                         .stdin(Stdio::piped())
                         .stdout(Stdio::inherit())
@@ -290,9 +316,9 @@ impl VoiceEventHandler for Receiver {
                                 println!("FFMPEG failed! {}", e);
                             }
                         };
-                        if let Err(e) = tokio::fs::remove_file(&file_path).await {
-                            println!("Failed to delete {}! {}", &file_path, e);
-                        };
+                        //if let Err(e) = tokio::fs::remove_file(&file_path).await {
+                        //    println!("Failed to delete {}! {}", &file_path, e);
+                        //};
                     });
                 }
                 println!(
@@ -361,11 +387,11 @@ impl VoiceEventHandler for Receiver {
                         */
                         let mut audio = {
                             let mut decoders = self.decoders.write().await;
-                            let decoder = decoders
-                                .get_mut(&packet.ssrc)
-                                .unwrap_or_else(|| unsafe {
-                                    unreachable_unchecked() // SAFETY: shouldn't ever happen... hopefully
-                                });
+                            let decoder = match decoders
+                                .get_mut(&packet.ssrc) {
+                                Some(d) => d,
+                                None => {return None;}
+                            };
                             let mut v = Vec::new();
                             match decoder.opus_decoder.decode(&packet.payload, &mut v, false) {
                                 Ok(s) => {
@@ -382,6 +408,7 @@ impl VoiceEventHandler for Receiver {
                         if let Some(b) = buf.get_mut(&packet.ssrc) {
                             b.append(&mut audio);
                         };
+
                     }
                 }
             }

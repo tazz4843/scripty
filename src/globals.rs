@@ -89,7 +89,9 @@ pub async fn set_db() -> Pool<Postgres> {
 
     query!(
         "CREATE TABLE IF NOT EXISTS users (
-        user_id BIGINT PRIMARY KEY
+        user_id BIGINT PRIMARY KEY,
+        premium_level SMALLINT,
+        premium_count INTEGER
     )",
     )
     .execute(&db)
