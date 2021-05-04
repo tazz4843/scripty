@@ -11,6 +11,9 @@ use songbird::{
 use std::{collections::{HashMap, BTreeSet}, process::Stdio, sync::Arc};
 use tokio::{io::AsyncWriteExt, process::Command, task};
 use uuid::Uuid;
+#[allow(unused_imports)]
+use tracing::{trace, debug, info, warn, error};
+use std::hint::unreachable_unchecked;
 
 fn do_check(
     user_id: &UserId,
@@ -35,8 +38,10 @@ pub struct Receiver {
 
 impl Receiver {
     pub async fn new(webhook: Webhook, context: Arc<Context>, premium_level: u8) -> Self {
-        // You can manage state here, such as a buffer of audio packet bytes so
-        // you can later store them in intervals.
+        if let Some(id) = webhook.guild_id {
+            trace!("constructing new receiver for {}", id);
+        }
+
         let ssrc_map = Arc::new(RwLock::new(HashMap::new()));
         let audio_buffer = Arc::new(RwLock::new(HashMap::new()));
         let encoded_audio_buffer = Arc::new(RwLock::new(HashMap::new()));
@@ -65,6 +70,7 @@ impl VoiceEventHandler for Receiver {
     #[allow(unused_variables)]
     async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
         use songbird::EventContext as Ctx;
+        debug!("act event for guild {:#?}", self.webhook.guild_id);
 
         match ctx {
             Ctx::SpeakingStateUpdate(Speaking {
@@ -84,19 +90,23 @@ impl VoiceEventHandler for Receiver {
                 // SSRCs and map the SSRC to the User ID and maintain this state.
                 // Using this map, you can map the `ssrc` in `voice_packet`
                 // to the user ID and handle their audio packets separately.
-                println!(
+                debug!(
                     "Speaking state update: user {:?} has SSRC {:?}, using {:?}",
                     user_id, ssrc, speaking,
                 );
 
                 if let Some(user_id) = user_id {
                     if !do_check(&user_id, &self.active_users.read().await) {
-                        println!("user failed the checks");
+                        debug!("user failed the checks");
                         return None;
                     }
 
-                    let mut map = self.ssrc_map.write().await;
-                    map.insert(*ssrc, *user_id);
+                    {
+                        trace!("locking SSRC map...");
+                        let mut map = self.ssrc_map.write().await;
+                        map.insert(*ssrc, *user_id);
+                        trace!("dropping SSRC map...");
+                    }
                     match DECODE_TYPE {
                         DecodeMode::Decrypt => {
                             {
@@ -112,8 +122,9 @@ impl VoiceEventHandler for Receiver {
                             let mut audio_buf = self.audio_buffer.write().await;
                             audio_buf.insert(*ssrc, Vec::new());
                         }
-                        _ => {
-                            panic!("No supported decode mode found!")
+                        _ => unsafe {
+                            unreachable_unchecked();
+                            // SAFETY: it is up to the programmer never to set a decode type other than Decrypt or Decode
                         }
                     }
                 } // otherwise just ignore it since we can't do anything about that
@@ -144,7 +155,7 @@ impl VoiceEventHandler for Receiver {
                                 match buf.insert(*ssrc, Vec::new()) {
                                     Some(a) => a,
                                     None => {
-                                        println!(
+                                        warn!(
                                             "Didn't find a user with SSRC {} in the audio buffers.",
                                             ssrc
                                         );
@@ -158,7 +169,7 @@ impl VoiceEventHandler for Receiver {
                             match buf.insert(*ssrc, Vec::new()) {
                                 Some(a) => a,
                                 None => {
-                                    println!(
+                                    warn!(
                                         "Didn't find a user with SSRC {} in the audio buffers.",
                                         ssrc
                                     );
@@ -167,7 +178,7 @@ impl VoiceEventHandler for Receiver {
                             }
                         }
                         _ => {
-                            println!("Decode mode is invalid!");
+                            error!("Decode mode is invalid!");
                             return None;
                         }
                     };
@@ -247,11 +258,11 @@ impl VoiceEventHandler for Receiver {
                         .spawn()
                     {
                         Err(e) => {
-                            println!("Failed to spawn FFMPEG!");
+                            error!("Failed to spawn FFMPEG: {}", e);
                             return None;
                         }
                         Ok(c) => {
-                            println!("Spawned FFMPEG!");
+                            trace!("Spawned FFMPEG!");
                             c
                         }
                     };
@@ -260,7 +271,7 @@ impl VoiceEventHandler for Receiver {
                         Some(ref mut stdin) => {
                             for i in audio {
                                 if let Err(e) = stdin.write_i16(i).await {
-                                    println!("Failed to write byte to FFMPEG stdin! {}", e);
+                                    error!("Failed to write byte to FFMPEG stdin! {}", e);
                                     return None;
                                     // the audio's now corrupted, no point in continuing
                                     // plus if this happens once it'll happen every time after,
@@ -269,7 +280,7 @@ impl VoiceEventHandler for Receiver {
                             }
                         }
                         None => {
-                            println!("Failed to open FFMPEG stdin!");
+                            error!("Failed to open FFMPEG stdin!");
                             return None;
                         }
                     };
@@ -308,20 +319,20 @@ impl VoiceEventHandler for Receiver {
                                         }
                                     }
                                     Err(e) => {
-                                        println!("Failed to run speech-to-text! {}", e);
+                                        error!("Failed to run speech-to-text! {}", e);
                                     }
                                 };
                             }
                             Err(e) => {
-                                println!("FFMPEG failed! {}", e);
+                                error!("FFMPEG failed! {}", e);
                             }
                         };
                         //if let Err(e) = tokio::fs::remove_file(&file_path).await {
-                        //    println!("Failed to delete {}! {}", &file_path, e);
+                        //    error!("Failed to delete {}! {}", &file_path, e);
                         //};
                     });
                 }
-                println!(
+                trace!(
                     "Source {} (ID {}) has {} speaking.",
                     ssrc,
                     uid,
@@ -395,10 +406,10 @@ impl VoiceEventHandler for Receiver {
                             let mut v = Vec::new();
                             match decoder.opus_decoder.decode(&packet.payload, &mut v, false) {
                                 Ok(s) => {
-                                    println!("Decoded {} opus samples", s);
+                                    trace!("Decoded {} opus samples", s);
                                 }
                                 Err(e) => {
-                                    println!("Failed to decode opus: {}", e);
+                                    error!("Failed to decode opus: {}", e);
                                     return None;
                                 }
                             };
@@ -437,7 +448,7 @@ impl VoiceEventHandler for Receiver {
                         active_users.insert(*user_id);
                     };
                 }
-                println!(
+                debug!(
                     "Client connected: user {:?} has audio SSRC {:?}, video SSRC {:?}",
                     user_id, audio_ssrc, video_ssrc,
                 );
@@ -485,7 +496,7 @@ impl VoiceEventHandler for Receiver {
                     }
                 };
 
-                println!("Client disconnected: user {:?}", user_id);
+                debug!("Client disconnected: user {:?}", user_id);
             }
             _ => {}
         }
