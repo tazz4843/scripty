@@ -42,6 +42,8 @@ pub mod cmd_status;
 pub mod decoder;
 /// The module for DeepSpeech utils.
 pub mod deepspeech;
+/// The module for a subclass of the DeepSpeech model that supports Send + Sync
+pub mod ds_model;
 /// The module for the statics and structs to save the statics to
 pub mod globals;
 /// The module for event handlers
@@ -50,8 +52,6 @@ pub mod handlers;
 pub mod statcord;
 /// The module for a few useful utilities
 pub mod utils;
-/// The module for a subclass of the DeepSpeech model that supports Send + Sync
-pub mod ds_model;
 
 /// The hidden group for all the commands to be added to
 /// - ONLY add your own groups to `sub_groups`

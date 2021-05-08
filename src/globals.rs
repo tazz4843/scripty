@@ -1,9 +1,9 @@
-use std::{convert::TryFrom, fs, io, path::Path};
+use deepspeech::Model;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
 use serenity::{http::client::Http, model::id::UserId, prelude::TypeMapKey};
 use sqlx::{postgres::PgConnectOptions, query, PgPool, Pool, Postgres};
-use deepspeech::Model;
+use std::{convert::TryFrom, fs, io, path::Path};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -54,16 +54,18 @@ pub async fn set_db() -> Pool<Postgres> {
     let db_port = config.port;
     let db_db = &config.db;
     let db_conn_options = PgConnectOptions::new();
-    let db = PgPool::connect_with(db_conn_options
-        .host(db_host)
-        .username(db_user)
-        .port(db_port)
-        .database(db_db)
-        .application_name("scripty")
-        .password(db_password)
-        .statement_cache_capacity(1000_usize))
-        .await
-        .expect("Couldn't connect to DB");
+    let db = PgPool::connect_with(
+        db_conn_options
+            .host(db_host)
+            .username(db_user)
+            .port(db_port)
+            .database(db_db)
+            .application_name("scripty")
+            .password(db_password)
+            .statement_cache_capacity(1000_usize),
+    )
+    .await
+    .expect("Couldn't connect to DB");
 
     query!(
         "CREATE TABLE IF NOT EXISTS prefixes (

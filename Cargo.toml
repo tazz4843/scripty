@@ -30,6 +30,7 @@ num_cpus = "1.13"
 procinfo = ""
 reqwest = "0.11"
 opus = "0.2"
+hound = "3.4"
 
 [dependencies.serenity]
 version = "0.10"
@@ -45,7 +46,7 @@ features = ["derive"]
 
 [dependencies.sqlx]
 version = "0.5"
-features = ["runtime-tokio-rustls", "sqlite", "postgres"]
+features = ["runtime-tokio-rustls", "postgres"]
 
 [target.x86_64-unknown-linux-gnu]
 linker = "/usr/bin/clang"

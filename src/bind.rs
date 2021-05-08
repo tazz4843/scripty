@@ -5,7 +5,7 @@ use serenity::model::channel::{Channel, ChannelType};
 use serenity::model::id::{ChannelId, GuildId};
 use serenity::prelude::Context;
 use songbird::CoreEvent;
-use sqlx::{query};
+use sqlx::query;
 use std::convert::TryInto;
 use std::hint::unreachable_unchecked;
 use std::sync::Arc;
@@ -40,34 +40,36 @@ pub async fn bind(
         _ => return Err("Not a guild channel.".to_string()),
     }
 
-    let (token, id): (String, u64) =
-        match query!("SELECT webhook_token, webhook_id FROM channels WHERE channel_id = $1", i64::from(transcription_channel))
-            .fetch_optional(db.unwrap_or_else(|| unsafe {
-                unreachable_unchecked() // SAFETY: we've already made 100% sure the DB pool exists above.
-            }))
-            .await
-        {
-            Ok(result) => {
-                let result = match result {
-                    Some(r) => r,
-                    None => return Err("Channel not found in DB.".to_string()),
-                };
+    let (token, id): (String, u64) = match query!(
+        "SELECT webhook_token, webhook_id FROM channels WHERE channel_id = $1",
+        i64::from(transcription_channel)
+    )
+    .fetch_optional(db.unwrap_or_else(|| unsafe {
+        unreachable_unchecked() // SAFETY: we've already made 100% sure the DB pool exists above.
+    }))
+    .await
+    {
+        Ok(result) => {
+            let result = match result {
+                Some(r) => r,
+                None => return Err("Channel not found in DB.".to_string()),
+            };
 
-                let token = match result.webhook_token {
-                    Some(r) => r,
-                    None => return Err(format!("Couldn't get webhook token from DB")),
-                };
-                let id = match result.webhook_id {
-                    Some(r) => match r.try_into() {
-                        Ok(r) => r,
-                        Err(e) => return Err(format!("Couldn't convert webhook ID to i64: {}", e)),
-                    },
-                    None => return Err(format!("Couldn't get webhook ID")),
-                };
-                (token, id)
-            }
-            Err(e) => return Err(format!("DB returned a error: {:?}", e)),
-        };
+            let token = match result.webhook_token {
+                Some(r) => r,
+                None => return Err(format!("Couldn't get webhook token from DB")),
+            };
+            let id = match result.webhook_id {
+                Some(r) => match r.try_into() {
+                    Ok(r) => r,
+                    Err(e) => return Err(format!("Couldn't convert webhook ID to i64: {}", e)),
+                },
+                None => return Err(format!("Couldn't get webhook ID")),
+            };
+            (token, id)
+        }
+        Err(e) => return Err(format!("DB returned a error: {:?}", e)),
+    };
 
     let webhook = match ctx.http.http().get_webhook_with_token(id, &*token).await {
         Ok(w) => w,

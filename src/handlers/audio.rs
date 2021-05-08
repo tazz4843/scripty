@@ -1,5 +1,9 @@
 use crate::{decoder::Decoder, deepspeech::run_stt, utils::DECODE_TYPE};
-use serenity::{async_trait, model::webhook::Webhook, prelude::{RwLock, Context}};
+use serenity::{
+    async_trait,
+    model::webhook::Webhook,
+    prelude::{Context, RwLock},
+};
 use songbird::{
     driver::DecodeMode,
     model::{
@@ -8,12 +12,16 @@ use songbird::{
     },
     Event, EventContext, EventHandler as VoiceEventHandler,
 };
-use std::{collections::{HashMap, BTreeSet}, process::Stdio, sync::Arc};
-use tokio::{io::AsyncWriteExt, process::Command, task};
-use uuid::Uuid;
-#[allow(unused_imports)]
-use tracing::{trace, debug, info, warn, error};
 use std::hint::unreachable_unchecked;
+use std::{
+    collections::{BTreeSet, HashMap},
+    process::Stdio,
+    sync::Arc,
+};
+use tokio::{fs, io::AsyncWriteExt, process::Command, task};
+#[allow(unused_imports)]
+use tracing::{debug, error, info, trace, warn};
+use uuid::Uuid;
 
 fn do_check(
     user_id: &UserId,
@@ -40,7 +48,9 @@ impl Receiver {
     pub async fn new(webhook: Webhook, context: Arc<Context>, premium_level: u8) -> Self {
         if let Some(id) = webhook.guild_id {
             trace!("constructing new receiver for {}", id);
-        }
+        } else {
+            trace!("constructing new receiver for unknown guild");
+        };
 
         let ssrc_map = Arc::new(RwLock::new(HashMap::new()));
         let audio_buffer = Arc::new(RwLock::new(HashMap::new()));
@@ -125,7 +135,7 @@ impl VoiceEventHandler for Receiver {
                         _ => unsafe {
                             unreachable_unchecked();
                             // SAFETY: it is up to the programmer never to set a decode type other than Decrypt or Decode
-                        }
+                        },
                     }
                 } // otherwise just ignore it since we can't do anything about that
             }
@@ -182,108 +192,9 @@ impl VoiceEventHandler for Receiver {
                             return None;
                         }
                     };
-                    // all of this code reeks of https://www.youtube.com/watch?v=lIFE7h3m40U
-                    let file_id = Uuid::new_v4();
-                    let file_path = format!("{}.wav", file_id.as_u128());
 
-                    // ffmpeg args
-                    let args = [
-                        "-f",
-                        "s16le",
-                        "-ar",
-                        "48000",
-                        "-ac",
-                        "2",
-                        "-i",
-                        "-",
-                        "-ac",
-                        "1",
-                        &file_path,
-                    ];
 
-                    /*
-                    // sox args
-                    let args = [
-                        // INPUT FILE
-                        // 16 bits
-                        "-b",
-                        "16",
-                        // 16kHz sample rate
-                        "-r",
-                        "16000",
-                        // stereo audio
-                        "-c",
-                        "2",
-                        // raw PCM data
-                        "-t",
-                        "raw",
-                        // little-endian
-                        "-L",
-                        // signed integers
-                        "-e",
-                        "signed-integer",
-                        // stdin contains the file
-                        "-",
 
-                        // OUTPUT FILE
-                        // 16 bits
-                        "-b",
-                        "16",
-                        // 16kHz sample rate
-                        "-r",
-                        "48000",
-                        // mono audio
-                        "-c",
-                        "1",
-                        // signed integers
-                        "-e",
-                        "signed-integer",
-                        // wav output
-                        "-t",
-                        "wav",
-                        &file_path,
-
-                        // EFFECTS
-                        "speed",
-                        "50"
-                    ];
-                    */
-
-                    let mut child = match Command::new("ffmpeg")
-                        .args(&args)
-                        .stdin(Stdio::piped())
-                        .stdout(Stdio::inherit())
-                        .stderr(Stdio::inherit())
-                        .kill_on_drop(true)
-                        .spawn()
-                    {
-                        Err(e) => {
-                            error!("Failed to spawn FFMPEG: {}", e);
-                            return None;
-                        }
-                        Ok(c) => {
-                            trace!("Spawned FFMPEG!");
-                            c
-                        }
-                    };
-
-                    match child.stdin {
-                        Some(ref mut stdin) => {
-                            for i in audio {
-                                if let Err(e) = stdin.write_i16(i).await {
-                                    error!("Failed to write byte to FFMPEG stdin! {}", e);
-                                    return None;
-                                    // the audio's now corrupted, no point in continuing
-                                    // plus if this happens once it'll happen every time after,
-                                    // and that gets spammy as hell
-                                };
-                            }
-                        }
-                        None => {
-                            error!("Failed to open FFMPEG stdin!");
-                            return None;
-                        }
-                    };
                     // we now have a file named "{}.wav" where {} is a random UUID as a 128-bit integer.
                     // we should yield now to let other tasks proceed
                     task::yield_now().await;
@@ -396,6 +307,7 @@ impl VoiceEventHandler for Receiver {
                             }
                         }
                         */
+                        /*
                         let mut audio = {
                             let mut decoders = self.decoders.write().await;
                             let decoder = match decoders
@@ -419,7 +331,7 @@ impl VoiceEventHandler for Receiver {
                         if let Some(b) = buf.get_mut(&packet.ssrc) {
                             b.append(&mut audio);
                         };
-
+                        */
                     }
                 }
             }

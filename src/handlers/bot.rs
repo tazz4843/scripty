@@ -100,11 +100,15 @@ impl EventHandler for Handler {
 
                                     let vc_id = match row.default_bind {
                                         Some(v) => v,
-                                        None => { continue; }
+                                        None => {
+                                            continue;
+                                        }
                                     };
                                     let result_id = match row.output_channel {
                                         Some(v) => v,
-                                        None => { continue; }
+                                        None => {
+                                            continue;
+                                        }
                                     };
 
                                     let _ = bind::bind(

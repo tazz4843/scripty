@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use serenity::{
     client::Context,
     framework::standard::{
@@ -7,6 +5,8 @@ use serenity::{
     },
     model::{channel::Message, id::UserId},
 };
+use std::collections::HashSet;
+use tracing::trace;
 
 #[help("help", "commands", "cmds")]
 #[suggestion_text = "**Maybe you meant one of these:**\n{}"]
@@ -42,6 +42,7 @@ async fn cmd_help(
     groups: &[&'static CommandGroup],
     owners: HashSet<UserId>,
 ) -> CommandResult {
+    trace!("user {} called help", msg.author);
     help_commands::with_embeds(context, msg, args, help_options, groups, owners).await;
     Ok(())
 }

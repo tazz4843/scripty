@@ -1,16 +1,5 @@
 use std::sync::{atomic::AtomicBool, Arc};
 
-use serenity::{
-    client::bridge::gateway::GatewayIntents,
-    framework::{standard::buckets::LimitedFor, StandardFramework},
-    Client,
-};
-use songbird::{
-    driver::{Config as DriverConfig, CryptoMode},
-    SerenityInit, Songbird,
-};
-use tokio::sync::RwLock;
-
 use scripty::handlers::bot::Handler;
 use scripty::{
     cmd_error,
@@ -21,6 +10,20 @@ use scripty::{
     utils::{ShardManagerWrapper, DECODE_TYPE},
     CONFIG_GROUP, GENERAL_GROUP, MASTER_GROUP, UTILS_GROUP, VOICE_GROUP,
 };
+use serenity::{
+    client::bridge::gateway::GatewayIntents,
+    framework::{standard::buckets::LimitedFor, StandardFramework},
+    Client,
+};
+use songbird::{
+    driver::{Config as DriverConfig, CryptoMode},
+    SerenityInit, Songbird,
+};
+use std::time::SystemTime;
+use tokio::sync::RwLock;
+use tracing::subscriber::set_global_default;
+use tracing::{info, instrument};
+use tracing_subscriber::util::SubscriberInitExt;
 
 /// You should add your own requirements to get the bot started here
 /// 1. Sets every global
@@ -33,25 +36,33 @@ use scripty::{
 /// # Errors
 /// If starting the client failed, probably meaning an error on Discord's side
 #[tokio::main]
+#[instrument]
 async fn main() {
+    let sub = tracing_subscriber::fmt().with_level(true).finish();
+    set_global_default(sub);
+
     set_dir();
 
-    println!("Loading config...");
+    info!("Loading config...");
     BotConfig::set("config.toml");
     let config = BotConfig::get().expect("Couldn't access BOT_CONFIG to get the token");
-    println!("Loaded config!");
+    info!("Loaded config!");
 
     BotInfo::set(config.token()).await;
     let bot_info = BotInfo::get().expect("Couldn't access BOT_INFO to get the owner and bot ID");
 
     CmdInfo::set();
 
-    println!("Loading DB...");
+    info!("Loading DB...");
+    let st = SystemTime::now();
     let db = set_db().await;
-    println!("Loaded DB!");
+    info!(
+        "Loaded DB in {}ms!",
+        st.elapsed().expect("system clock rolled back").as_millis()
+    );
 
-    let client_init_start = std::time::SystemTime::now();
-    println!("Initializing client...");
+    let client_init_start = SystemTime::now();
+    info!("Initializing client...");
     // Here, we need to configure Songbird to decode all incoming voice packets.
     // If you want, you can do this on a per-call basis---here, we need it to
     // read the audio data that other people are sending us!
@@ -116,7 +127,7 @@ async fn main() {
         let mut type_map = client.data.write().await;
         type_map.insert::<ShardManagerWrapper>(Arc::new(RwLock::new(client.shard_manager.clone())));
     }
-    println!(
+    info!(
         "Initialized client in {}ms!",
         client_init_start
             .elapsed()
@@ -124,7 +135,7 @@ async fn main() {
             .as_millis()
     );
 
-    println!("Starting client...");
+    info!("Starting client...");
     if let Err(e) = client.start_autosharded().await {
         print_and_write(format!("Couldn't start the client: {}", e));
     }

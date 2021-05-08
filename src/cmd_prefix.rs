@@ -4,7 +4,7 @@ use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     model::channel::Message,
 };
-use sqlx::{query};
+use sqlx::query;
 
 use crate::{
     globals::{CmdInfo, PgPoolKey},
@@ -151,9 +151,10 @@ pub async fn prefix_check(ctx: &Context, msg: &Message) -> Option<String> {
            prefixes
          WHERE
            guild_id = $1",
-        guild_id.0 as i64)
-        .fetch_optional(db)
-        .await
+        guild_id.0 as i64
+    )
+    .fetch_optional(db)
+    .await
     {
         Err(err) => {
             log(
@@ -163,7 +164,7 @@ pub async fn prefix_check(ctx: &Context, msg: &Message) -> Option<String> {
                     err
                 ),
             )
-                .await;
+            .await;
             None
         }
         Ok(row) => match row {

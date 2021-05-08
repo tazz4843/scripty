@@ -3,7 +3,7 @@ use std::path::Path;
 use std::sync::RwLock;
 
 pub(crate) struct DsModel {
-    pub(crate) model: RwLock<Model>
+    pub(crate) model: RwLock<Model>,
 }
 
 unsafe impl Send for DsModel {} // SAFETY: none, it just hasn't broken yet

@@ -1,10 +1,10 @@
-use std::{fs::File};
+use std::fs::File;
 
+use crate::globals::BotConfig;
 use audrey::read::Reader;
 use dasp_interpolate::linear::Linear;
 use dasp_signal::{from_iter, interpolate::Converter, Signal};
 use deepspeech::{errors::DeepspeechError, Model};
-use crate::globals::BotConfig;
 use std::path::Path;
 
 // The model has been trained on this specific

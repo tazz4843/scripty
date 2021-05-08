@@ -6,7 +6,7 @@ use serenity::{
     model::{channel::Message, id::ChannelId},
     prelude::Mentionable,
 };
-use std::hint::unreachable_unchecked;
+use tracing::error;
 
 #[command("join")]
 #[required_permissions("MANAGE_GUILD")]
@@ -28,8 +28,9 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
             return Ok(());
         }
     };
-    let guild_id = msg.guild_id.unwrap_or_else(|| unsafe {
-        unreachable_unchecked() // SAFETY: serenity has already made sure we are not in DMs.
+    let guild_id = msg.guild_id.unwrap_or_else(|| {
+        error!("somehow in DMs for join cmd");
+        panic!("somehow in DMs")
     });
     let transcription_channel = msg.channel_id;
 
@@ -47,7 +48,13 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
             }
             Err(e) => {
                 is_error = true;
-                format!("Failed to join: {}", e)
+                let err = format!(
+                    "Failed to join {} because {}",
+                    transcription_channel.mention(),
+                    e
+                );
+                error!("{}", err);
+                err
             }
         },
     );
