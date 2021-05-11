@@ -42,8 +42,6 @@ pub mod cmd_status;
 pub mod decoder;
 /// The module for DeepSpeech utils.
 pub mod deepspeech;
-/// The module for a subclass of the DeepSpeech model that supports Send + Sync
-pub mod ds_model;
 /// The module for the statics and structs to save the statics to
 pub mod globals;
 /// The module for event handlers

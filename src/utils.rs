@@ -95,7 +95,7 @@ pub async fn do_stats_update(ctx: Arc<Context>) {
             let start = SystemTime::now();
             let _ = query!(
                 "SELECT prefix FROM prefixes WHERE guild_id = $1",
-                675390855716274216 as i64
+                675390855716274216_i64
             )
             .fetch_optional(db)
             .await;

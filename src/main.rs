@@ -23,7 +23,6 @@ use std::time::SystemTime;
 use tokio::sync::RwLock;
 use tracing::subscriber::set_global_default;
 use tracing::{info, instrument};
-use tracing_subscriber::util::SubscriberInitExt;
 
 /// You should add your own requirements to get the bot started here
 /// 1. Sets every global
@@ -39,7 +38,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 #[instrument]
 async fn main() {
     let sub = tracing_subscriber::fmt().with_level(true).finish();
-    set_global_default(sub);
+    set_global_default(sub).expect("failed to set global default logger");
 
     set_dir();
 

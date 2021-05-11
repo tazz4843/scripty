@@ -1,4 +1,5 @@
 use crate::{decoder::Decoder, deepspeech::run_stt, utils::DECODE_TYPE};
+// use hound::{SampleFormat, WavSpec, WavWriter};
 use serenity::{
     async_trait,
     model::webhook::Webhook,
@@ -15,13 +16,11 @@ use songbird::{
 use std::hint::unreachable_unchecked;
 use std::{
     collections::{BTreeSet, HashMap},
-    process::Stdio,
     sync::Arc,
 };
-use tokio::{fs, io::AsyncWriteExt, process::Command, task};
+use tokio::task;
 #[allow(unused_imports)]
 use tracing::{debug, error, info, trace, warn};
-use uuid::Uuid;
 
 fn do_check(
     user_id: &UserId,
@@ -46,6 +45,15 @@ pub struct Receiver {
 
 impl Receiver {
     pub async fn new(webhook: Webhook, context: Arc<Context>, premium_level: u8) -> Self {
+        let max_users = match premium_level {
+            0 => 10,
+            1 => 25,
+            2 => 50,
+            3 => 100,
+            4 => 250,
+            _ => u32::MAX,
+        };
+
         if let Some(id) = webhook.guild_id {
             trace!("constructing new receiver for {}", id);
         } else {
@@ -69,7 +77,7 @@ impl Receiver {
             premium_level,
             active_users,
             next_users,
-            max_users: 10,
+            max_users,
         }
     }
 }
@@ -107,7 +115,7 @@ impl VoiceEventHandler for Receiver {
 
                 if let Some(user_id) = user_id {
                     if !do_check(&user_id, &self.active_users.read().await) {
-                        debug!("user failed the checks");
+                        trace!("user failed the checks");
                         return None;
                     }
 
@@ -193,54 +201,40 @@ impl VoiceEventHandler for Receiver {
                         }
                     };
 
-
-
-                    // we now have a file named "{}.wav" where {} is a random UUID as a 128-bit integer.
-                    // we should yield now to let other tasks proceed
-                    task::yield_now().await;
                     let webhook = Arc::clone(&self.webhook);
                     let context = Arc::clone(&self.context);
 
                     task::spawn(async move {
-                        match child.wait().await {
-                            Ok(_) => {
-                                match run_stt(file_path.clone()).await {
-                                    Ok(r) => {
-                                        if r.len() != 0 {
-                                            match context.cache.user(uid).await {
-                                                Some(u) => {
-                                                    let profile_picture = match u.avatar {
-                                                        Some(a) => {
-                                                            format!("https://cdn.discordapp.com/avatars/{}/{}.png", u.id, a)
-                                                        }
-                                                        None => u.default_avatar_url(),
-                                                    };
-                                                    let name = u.name;
+                        match run_stt(audio).await {
+                            Ok(r) => {
+                                if r.len() != 0 {
+                                    match context.cache.user(uid).await {
+                                        Some(u) => {
+                                            let profile_picture = match u.avatar {
+                                                Some(a) => format!(
+                                                    "https://cdn.discordapp.com/avatars/{}/{}.png",
+                                                    u.id, a
+                                                ),
+                                                None => u.default_avatar_url(),
+                                            };
+                                            let name = u.name;
 
-                                                    let _ = webhook
-                                                        .execute(&context, false, |m| {
-                                                            m.avatar_url(profile_picture)
-                                                                .content(r)
-                                                                .username(name)
-                                                        })
-                                                        .await;
-                                                }
-                                                None => {}
-                                            }
+                                            let _ = webhook
+                                                .execute(&context, false, |m| {
+                                                    m.avatar_url(profile_picture)
+                                                        .content(r)
+                                                        .username(name)
+                                                })
+                                                .await;
                                         }
+                                        None => {}
                                     }
-                                    Err(e) => {
-                                        error!("Failed to run speech-to-text! {}", e);
-                                    }
-                                };
+                                }
                             }
                             Err(e) => {
-                                error!("FFMPEG failed! {}", e);
+                                error!("Failed to run speech-to-text! {}", e);
                             }
                         };
-                        //if let Err(e) = tokio::fs::remove_file(&file_path).await {
-                        //    error!("Failed to delete {}! {}", &file_path, e);
-                        //};
                     });
                 }
                 trace!(
@@ -283,37 +277,13 @@ impl VoiceEventHandler for Receiver {
                         b.extend(audio);
                     }
                     _ => {
-                        /*
-                        let audio_range: &usize = &(packet.payload.len() - payload_end_pad);
-                        let range = std::ops::Range {
-                            start: payload_offset,
-                            end: audio_range,
-                        };
-                        let mut buf = self.encoded_audio_buffer.write().await;
-                        let b = match buf.get_mut(&packet.ssrc) {
-                            Some(b) => b,
-                            None => {
-                                return None;
-                            }
-                        };
-                        let mut counter: i64 = -1;
-                        for i in &packet.payload {
-                            counter += 1;
-                            if (counter <= *payload_offset as i64) | (counter > *audio_range as i64)
-                            {
-                                continue;
-                            } else {
-                                b.push(*i)
-                            }
-                        }
-                        */
-                        /*
                         let mut audio = {
                             let mut decoders = self.decoders.write().await;
-                            let decoder = match decoders
-                                .get_mut(&packet.ssrc) {
+                            let decoder = match decoders.get_mut(&packet.ssrc) {
                                 Some(d) => d,
-                                None => {return None;}
+                                None => {
+                                    return None;
+                                }
                             };
                             let mut v = Vec::new();
                             match decoder.opus_decoder.decode(&packet.payload, &mut v, false) {
@@ -331,7 +301,6 @@ impl VoiceEventHandler for Receiver {
                         if let Some(b) = buf.get_mut(&packet.ssrc) {
                             b.append(&mut audio);
                         };
-                        */
                     }
                 }
             }

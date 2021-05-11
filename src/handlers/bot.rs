@@ -17,6 +17,7 @@ use std::{
     },
     time::{Duration, SystemTime},
 };
+use tracing::{debug, info, warn};
 
 /// The event handler struct to implement EventHandler for
 pub struct Handler {
@@ -35,7 +36,7 @@ impl EventHandler for Handler {
         if let Some(config) = BotConfig::get() {
             if config.log_guild_added() {
                 let msg = format!("In {} guilds!", guilds.len());
-                println!("{}", msg);
+                info!("{}", msg);
                 crate::log(&ctx, msg).await;
             }
         } else {
@@ -58,6 +59,14 @@ impl EventHandler for Handler {
         // An AtomicBool is used because it doesn't require a mutable reference to be changed, as
         // we don't have one due to self being an immutable reference.
         if !self.is_loop_running.load(Ordering::Relaxed) {
+            info!(
+                "Started client in {}ms!",
+                self.start_time
+                    .elapsed()
+                    .expect("System clock rolled back!")
+                    .as_millis()
+            );
+
             // We have to clone the Arc, as it gets moved into the new thread.
             let ctx1 = Arc::clone(&ctx);
             let ctx2 = Arc::clone(&ctx);
@@ -111,13 +120,18 @@ impl EventHandler for Handler {
                                         }
                                     };
 
-                                    let _ = bind::bind(
+                                    if let Err(e) = bind::bind(
                                         &ctx,
                                         (vc_id as u64).into(),
                                         (result_id as u64).into(),
                                         (guild_id as u64).into(),
                                     )
-                                    .await;
+                                    .await
+                                    {
+                                        warn!("failed to join VC in {}: {}", guild_id, e);
+                                    } else {
+                                        debug!("joined VC in {} successfully", guild_id);
+                                    };
                                 }
                                 None => {
                                     break;
@@ -141,13 +155,6 @@ impl EventHandler for Handler {
     /// Triggered when the bot or a new shard is ready
     /// - Sets the activity of the bot to `@{bot username} help`
     async fn ready(&self, ctx: Context, info: Ready) {
-        println!(
-            "Started client in {}ms!",
-            self.start_time
-                .elapsed()
-                .expect("System clock rolled back!")
-                .as_millis()
-        );
         ctx.set_activity(Activity::playing(
             format!("@{} help", info.user.name).as_str(),
         ))
