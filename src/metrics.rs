@@ -70,7 +70,6 @@ pub struct Metrics {
     pub guilds: IntGauge,
     pub members: IntGauge,
     pub ms_transcribed: IntCounter,
-    pub voice_connections: IntGauge,
 }
 
 #[allow(clippy::new_without_default)]
@@ -105,7 +104,6 @@ impl Metrics {
             guilds: guilds_gauge,
             members: members_gauge,
             ms_transcribed,
-            voice_connections,
         }
     }
 }
