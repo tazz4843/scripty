@@ -89,11 +89,6 @@ impl Metrics {
 
         let ms_transcribed =
             IntCounter::new("audio_transcribed", "Milliseconds of audio transcribed").unwrap();
-        let voice_connections = IntGauge::new(
-            "voice_connections",
-            "Total active connections to a voice chat",
-        )
-        .unwrap();
 
         let registry = Registry::new_custom(Some("scripty".into()), None).unwrap();
         registry.register(Box::new(messages_vec)).unwrap();
@@ -101,9 +96,6 @@ impl Metrics {
         registry.register(Box::new(guilds_gauge.clone())).unwrap();
         registry.register(Box::new(members_gauge.clone())).unwrap();
         registry.register(Box::new(ms_transcribed.clone())).unwrap();
-        registry
-            .register(Box::new(voice_connections.clone()))
-            .unwrap();
 
         Self {
             registry,
