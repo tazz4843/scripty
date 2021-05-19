@@ -20,6 +20,8 @@ use serenity::{
 };
 use std::{env, fmt::Display, io::Write};
 
+/// The module for auto-joining to the VC
+pub mod auto_join;
 /// The module for binding the bot to a VC
 pub mod bind;
 /// The module for error handling of the commands
@@ -46,8 +48,12 @@ pub mod deepspeech;
 pub mod globals;
 /// The module for event handlers
 pub mod handlers;
-/// The module for Statcord utilities
-pub mod statcord;
+/// The module for Prometheus stats
+pub mod metrics;
+/// The module for a background task running as a metrics updater
+pub mod metrics_counter;
+/// The module for the Prometheus webserver
+pub mod metrics_server;
 /// The module for a few useful utilities
 pub mod utils;
 

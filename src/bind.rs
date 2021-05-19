@@ -38,7 +38,30 @@ pub async fn bind(
             }
         },
         _ => return Err("Not a guild channel.".to_string()),
-    }
+    };
+
+    let premium_level: u8 = match query!(
+        "SELECT premium_level FROM guilds WHERE guild_id = $1",
+        i64::from(guild_id)
+    )
+    .fetch_optional(db.unwrap_or_else(|| unsafe {
+        unreachable_unchecked() // SAFETY: we've already made 100% sure the DB pool exists above.
+    }))
+    .await
+    {
+        Ok(result) => {
+            let result = match result {
+                Some(r) => r,
+                None => return Err("Guild not found in DB.".to_string()),
+            };
+
+            match result.premium_level.try_into() {
+                Ok(r) => r,
+                Err(e) => return Err(format!("Failed to convert premium level to a u8: {}", e)),
+            }
+        }
+        Err(e) => return Err(format!("DB returned a error: {:?}", e)),
+    };
 
     let (token, id): (String, u64) = match query!(
         "SELECT webhook_token, webhook_id FROM channels WHERE channel_id = $1",
@@ -57,14 +80,14 @@ pub async fn bind(
 
             let token = match result.webhook_token {
                 Some(r) => r,
-                None => return Err(format!("Couldn't get webhook token from DB")),
+                None => return Err("Couldn't get webhook token from DB".to_string()),
             };
             let id = match result.webhook_id {
                 Some(r) => match r.try_into() {
                     Ok(r) => r,
                     Err(e) => return Err(format!("Couldn't convert webhook ID to i64: {}", e)),
                 },
-                None => return Err(format!("Couldn't get webhook ID")),
+                None => return Err("Couldn't get webhook ID".to_string()),
             };
             (token, id)
         }
@@ -90,7 +113,7 @@ pub async fn bind(
 
             let ctx1 = Arc::new(ctx.clone());
 
-            let receiver = Receiver::new(webhook, ctx1, 0).await;
+            let receiver = Receiver::new(webhook, ctx1, premium_level).await;
 
             let _ = handler.mute(true).await;
 

@@ -1,5 +1,6 @@
 use crate::{decoder::Decoder, deepspeech::run_stt, utils::DECODE_TYPE};
 // use hound::{SampleFormat, WavSpec, WavWriter};
+use crate::metrics::Metrics;
 use serenity::{
     async_trait,
     model::webhook::Webhook,
@@ -72,11 +73,11 @@ impl Receiver {
             audio_buffer,
             encoded_audio_buffer,
             decoders,
+            active_users,
+            next_users,
             webhook,
             context,
             premium_level,
-            active_users,
-            next_users,
             max_users,
         }
     }
@@ -207,27 +208,24 @@ impl VoiceEventHandler for Receiver {
                     task::spawn(async move {
                         match run_stt(audio).await {
                             Ok(r) => {
-                                if r.len() != 0 {
-                                    match context.cache.user(uid).await {
-                                        Some(u) => {
-                                            let profile_picture = match u.avatar {
-                                                Some(a) => format!(
-                                                    "https://cdn.discordapp.com/avatars/{}/{}.png",
-                                                    u.id, a
-                                                ),
-                                                None => u.default_avatar_url(),
-                                            };
-                                            let name = u.name;
+                                if !r.is_empty() {
+                                    if let Some(u) = context.cache.user(uid).await {
+                                        let profile_picture = match u.avatar {
+                                            Some(a) => format!(
+                                                "https://cdn.discordapp.com/avatars/{}/{}.png",
+                                                u.id, a
+                                            ),
+                                            None => u.default_avatar_url(),
+                                        };
+                                        let name = u.name;
 
-                                            let _ = webhook
-                                                .execute(&context, false, |m| {
-                                                    m.avatar_url(profile_picture)
-                                                        .content(r)
-                                                        .username(name)
-                                                })
-                                                .await;
-                                        }
-                                        None => {}
+                                        let _ = webhook
+                                            .execute(&context, false, |m| {
+                                                m.avatar_url(profile_picture)
+                                                    .content(r)
+                                                    .username(name)
+                                            })
+                                            .await;
                                     }
                                 }
                             }
@@ -252,6 +250,17 @@ impl VoiceEventHandler for Receiver {
             } => {
                 // An event which fires for every received audio packet,
                 // containing the decoded data.
+
+                {
+                    let client_data = self.context.data.read().await;
+                    let metrics = client_data.get::<Metrics>().unwrap_or_else(|| unsafe {
+                        // SAFETY: this should never happen if the metrics pool is inserted at client init
+                        unreachable_unchecked()
+                    });
+                    // 20ms audio packet: if it isn't 20 but rather 30 oh well too bad, it's only 10ms we lose
+                    // anything else shouldn't ever happen
+                    metrics.ms_transcribed.inc_by(20);
+                }
 
                 let uid: u64 = {
                     let map = self.ssrc_map.read().await;

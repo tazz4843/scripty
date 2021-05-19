@@ -1,12 +1,11 @@
-use std::sync::{atomic::AtomicBool, Arc};
-
-use scripty::handlers::bot::Handler;
 use scripty::{
     cmd_error,
     cmd_help::CMD_HELP,
     cmd_prefix::prefix_check,
     globals::{set_db, BotConfig, BotInfo, CmdInfo, PgPoolKey},
-    print_and_write, set_dir,
+    handlers::{bot::Handler, raw::RawHandler},
+    metrics::Metrics,
+    metrics_server, set_dir,
     utils::{ShardManagerWrapper, DECODE_TYPE},
     CONFIG_GROUP, GENERAL_GROUP, MASTER_GROUP, UTILS_GROUP, VOICE_GROUP,
 };
@@ -19,10 +18,12 @@ use songbird::{
     driver::{Config as DriverConfig, CryptoMode},
     SerenityInit, Songbird,
 };
-use std::time::SystemTime;
+use std::{
+    sync::{atomic::AtomicBool, Arc},
+    time::SystemTime,
+};
 use tokio::sync::RwLock;
-use tracing::subscriber::set_global_default;
-use tracing::{info, instrument};
+use tracing::{error, info, instrument, subscriber::set_global_default};
 
 /// You should add your own requirements to get the bot started here
 /// 1. Sets every global
@@ -52,13 +53,27 @@ async fn main() {
 
     CmdInfo::set();
 
-    info!("Loading DB...");
-    let st = SystemTime::now();
-    let db = set_db().await;
-    info!(
-        "Loaded DB in {}ms!",
-        st.elapsed().expect("system clock rolled back").as_millis()
-    );
+    let db = {
+        info!("Loading DB...");
+        let st = SystemTime::now();
+        let db = set_db().await;
+        info!(
+            "Loaded DB in {}ms!",
+            st.elapsed().expect("system clock rolled back").as_millis()
+        );
+        db
+    };
+
+    let metrics = {
+        info!("Initializing metrics client...");
+        let st = SystemTime::now();
+        let metrics = Arc::new(Metrics::new());
+        info!(
+            "Initialized metrics client in {}ms!",
+            st.elapsed().expect("system clock rolled back").as_millis()
+        );
+        metrics
+    };
 
     let client_init_start = SystemTime::now();
     info!("Initializing client...");
@@ -117,7 +132,9 @@ async fn main() {
             is_loop_running: AtomicBool::new(false),
             start_time: client_init_start,
         })
+        .raw_event_handler(RawHandler)
         .type_map_insert::<PgPoolKey>(db)
+        .type_map_insert::<Metrics>(Arc::clone(&metrics))
         .framework(framework)
         .register_songbird_with(songbird)
         .await
@@ -134,8 +151,16 @@ async fn main() {
             .as_millis()
     );
 
+    info!("Starting metrics server...");
+    let st = SystemTime::now();
+    metrics_server::start(Arc::clone(&metrics));
+    info!(
+        "Started metrics server in {}ms!",
+        st.elapsed().expect("system clock rolled back").as_millis()
+    );
+
     info!("Starting client...");
     if let Err(e) = client.start_autosharded().await {
-        print_and_write(format!("Couldn't start the client: {}", e));
+        error!("Couldn't start the client: {}", e);
     }
 }

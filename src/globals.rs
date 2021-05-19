@@ -31,7 +31,10 @@ github = \"https://github.com/USER NAME HERE/REPO NAME HERE\"
 colour = 11771355
 
 # Full path to the DeepSpeech model and scorer.
-deepspeech_path = \"/home/user/deepspeech\"
+deepspeech_path = \"/home/user/deepspeech\"\
+
+# Statcord key
+statcord_key = \"statcord.com-abcdefghi\"
 ";
 
 /// The struct to implement TypeMapKey for, use this to get the SqlitePool from `ctx.data`
@@ -172,10 +175,12 @@ pub struct BotConfig {
     password: String,
     port: u16,
     db: String,
+    metrics_bind_addr: [u8; 4],
+    metrics_bind_port: u16,
 }
 
 /// The static to hold the struct, so that it's global
-static BOT_CONFIG: OnceCell<BotConfig> = OnceCell::new();
+pub(crate) static BOT_CONFIG: OnceCell<BotConfig> = OnceCell::new();
 
 impl BotConfig {
     /// Serialises the values in the config file at the `config_path` to `BotConfig` and saves it to `BOT_CONFIG` or creates the file at `config_path` and writes `DEFAULT_CONFIG` to it if it doesn't exist
@@ -242,6 +247,13 @@ impl BotConfig {
     /// The getter for the `model_path` field, to be used with `get()`
     pub fn model_path(&self) -> &String {
         &self.model_path
+    }
+    /// The getter for the `metrics_bind` fields, to be used with `get()`
+    pub fn metrics_bind_info(&self) -> ([u8; 4], u16) {
+        (
+            self.metrics_bind_addr,
+            self.metrics_bind_port,
+        )
     }
 }
 

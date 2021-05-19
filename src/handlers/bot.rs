@@ -1,6 +1,4 @@
-use crate::globals::PgPoolKey;
-use crate::{bind, globals::BotConfig, utils::do_stats_update};
-use serenity::futures::TryStreamExt;
+use crate::{auto_join, globals::BotConfig, metrics_counter, utils::do_stats_update};
 use serenity::{
     async_trait,
     client::{Context, EventHandler},
@@ -10,14 +8,13 @@ use serenity::{
     },
 };
 use std::{
-    hint,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
     time::{Duration, SystemTime},
 };
-use tracing::{debug, info, warn};
+use tracing::info;
 
 /// The event handler struct to implement EventHandler for
 pub struct Handler {
@@ -59,6 +56,7 @@ impl EventHandler for Handler {
         // An AtomicBool is used because it doesn't require a mutable reference to be changed, as
         // we don't have one due to self being an immutable reference.
         if !self.is_loop_running.load(Ordering::Relaxed) {
+            self.is_loop_running.swap(true, Ordering::Relaxed);
             info!(
                 "Started client in {}ms!",
                 self.start_time
@@ -70,12 +68,11 @@ impl EventHandler for Handler {
             // We have to clone the Arc, as it gets moved into the new thread.
             let ctx1 = Arc::clone(&ctx);
             let ctx2 = Arc::clone(&ctx);
+            let ctx3 = Arc::clone(&ctx);
             // tokio::spawn creates a new green thread that can run in parallel with the rest of
             // the application.
             tokio::spawn(async move {
                 loop {
-                    // We clone Context again here, because Arc is owned, so it moves to the
-                    // new function.
                     do_stats_update(Arc::clone(&ctx1)).await;
                     tokio::time::sleep(Duration::from_secs(30)).await;
                 }
@@ -83,72 +80,17 @@ impl EventHandler for Handler {
 
             tokio::spawn(async move {
                 loop {
-                    let data = ctx2.data.read().await;
-                    let pool = data.get::<PgPoolKey>().unwrap_or_else(|| unsafe {
-                        hint::unreachable_unchecked()
-                        // SAFETY: this should absolutely never happen if the DB pool is placed
-                        // in at initialization. if that were to happen, undefined behavior would result anyways
-                    });
-                    let mut query = sqlx::query!("SELECT * FROM guilds").fetch(pool);
-                    loop {
-                        match query.try_next().await {
-                            Ok(row) => match row {
-                                Some(row) => {
-                                    let guild_id = row.guild_id;
-
-                                    if let Some(_) = songbird::get(&ctx2)
-                                        .await
-                                        .unwrap_or_else(|| unsafe {
-                                            hint::unreachable_unchecked() // SAFETY: this should absolutely never happen if Songbird is registered at client init.
-                                                                          // if it isn't registered, UB would result anyways
-                                        })
-                                        .get::<u64>(guild_id as u64)
-                                    {
-                                        continue;
-                                    };
-
-                                    let vc_id = match row.default_bind {
-                                        Some(v) => v,
-                                        None => {
-                                            continue;
-                                        }
-                                    };
-                                    let result_id = match row.output_channel {
-                                        Some(v) => v,
-                                        None => {
-                                            continue;
-                                        }
-                                    };
-
-                                    if let Err(e) = bind::bind(
-                                        &ctx,
-                                        (vc_id as u64).into(),
-                                        (result_id as u64).into(),
-                                        (guild_id as u64).into(),
-                                    )
-                                    .await
-                                    {
-                                        warn!("failed to join VC in {}: {}", guild_id, e);
-                                    } else {
-                                        debug!("joined VC in {} successfully", guild_id);
-                                    };
-                                }
-                                None => {
-                                    break;
-                                }
-                            },
-                            Err(_) => {
-                                continue;
-                            }
-                        }
-                    }
-
+                    auto_join::auto_join(Arc::clone(&ctx2)).await;
                     tokio::time::sleep(Duration::from_secs(300)).await;
                 }
             });
 
-            // Now that the loop is running, we set the bool to true
-            self.is_loop_running.swap(true, Ordering::Relaxed);
+            tokio::spawn(async move {
+                loop {
+                    metrics_counter::metrics_counter(Arc::clone(&ctx3)).await;
+                    tokio::time::sleep(Duration::from_secs(300)).await;
+                }
+            });
         }
     }
 
