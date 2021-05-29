@@ -85,7 +85,7 @@ pub async fn set_db() -> Pool<Postgres> {
         guild_id BIGINT PRIMARY KEY,
         default_bind BIGINT,
         output_channel BIGINT,
-        premium_level SMALLINT
+        premium_level SMALLINT NOT NULL
     )",
     )
     .execute(&db)
