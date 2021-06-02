@@ -1,3 +1,4 @@
+use scripty::globals::METRICS;
 use scripty::{
     cmd_error,
     cmd_help::CMD_HELP,
@@ -18,6 +19,7 @@ use songbird::{
     driver::{Config as DriverConfig, CryptoMode},
     SerenityInit, Songbird,
 };
+use std::hint::unreachable_unchecked;
 use std::{
     sync::{atomic::AtomicBool, Arc},
     time::SystemTime,
@@ -49,7 +51,7 @@ async fn main() {
     info!("Loaded config!");
 
     BotInfo::set(config.token()).await;
-    let bot_info = BotInfo::get().expect("Couldn't access BOT_INFO to get the owner and bot ID");
+    let bot_info = BotInfo::get();
 
     CmdInfo::set();
 
@@ -68,6 +70,9 @@ async fn main() {
         info!("Initializing metrics client...");
         let st = SystemTime::now();
         let metrics = Arc::new(Metrics::new());
+        METRICS
+            .set(metrics.clone())
+            .unwrap_or_else(|_| unsafe { unreachable_unchecked() });
         info!(
             "Initialized metrics client in {}ms!",
             st.elapsed().expect("system clock rolled back").as_millis()
@@ -92,9 +97,12 @@ async fn main() {
             c.prefix("~")
                 .no_dm_prefix(true)
                 .case_insensitivity(true)
-                .on_mention(Some(bot_info.user()))
-                .owners(vec![bot_info.owner()].into_iter().collect())
-                .dynamic_prefix(|ctx, msg| Box::pin(prefix_check(ctx, msg)))
+                .dynamic_prefix(|ctx, msg| Box::pin(prefix_check(ctx, msg)));
+            if let Some(bot_info) = bot_info {
+                c.on_mention(Some(bot_info.user()))
+                    .owners(vec![bot_info.owner()].into_iter().collect());
+            }
+            c
         })
         .on_dispatch_error(cmd_error::handle)
         .bucket("general", |b| {
@@ -153,7 +161,7 @@ async fn main() {
 
     info!("Starting metrics server...");
     let st = SystemTime::now();
-    metrics_server::start(Arc::clone(&metrics));
+    metrics_server::start();
     info!(
         "Started metrics server in {}ms!",
         st.elapsed().expect("system clock rolled back").as_millis()

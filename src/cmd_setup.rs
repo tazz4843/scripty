@@ -76,7 +76,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
             return Ok(());
         }
     };
-    if  CollectReply::new(&ctx)
+    if CollectReply::new(&ctx)
         .author_id(msg.author.id)
         .channel_id(msg.channel_id)
         .guild_id(
@@ -326,7 +326,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
         _ => {
             match query!(
                 "INSERT INTO channels (channel_id, webhook_token, webhook_id)
-            VALUES($1, $2, $3) ON CONFLICT DO NOTHING;",
+            VALUES($1, $2, $3) ON CONFLICT (channel_id) DO UPDATE SET webhook_token = $2, webhook_id = $3;",
                 result_id as i64,
                 token,
                 i64::from(id)

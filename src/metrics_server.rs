@@ -1,63 +1,72 @@
-use crate::globals::BOT_CONFIG;
-use crate::metrics::Metrics;
-use hyper::{
-    header::CONTENT_TYPE,
-    service::{make_service_fn, service_fn},
-    Body, Request, Response, Server,
-};
+use crate::globals::METRICS;
 use prometheus::{Encoder, TextEncoder};
-use std::sync::Arc;
-use tokio::sync::mpsc::{Receiver, Sender};
+use std::hint::unreachable_unchecked;
+/*
+use rocket::http::Status;
+use rocket::outcome::Outcome;
+use rocket::{Request, request};
+use rocket::request::FromRequest;
+*/
 
-async fn serve_req(
-    _req: Request<Body>,
-    metrics: Arc<Metrics>,
-) -> Result<Response<Body>, hyper::Error> {
+#[rocket::get("/metrics")]
+async fn metrics() -> Vec<u8> {
+    let m = METRICS
+        .get()
+        .unwrap_or_else(|| unsafe { unreachable_unchecked() });
     let encoder = TextEncoder::new();
 
     let mut buffer = Vec::new();
-    let metric_families = metrics.registry.gather();
+    let metric_families = m.registry.gather();
     encoder.encode(&metric_families, &mut buffer).unwrap();
-
-    let response = Response::builder()
-        .status(200)
-        .header(CONTENT_TYPE, encoder.format_type())
-        .body(Body::from(buffer))
-        .unwrap();
-
-    Ok(response)
+    buffer
 }
 
-pub async fn _start(metrics: Arc<Metrics>, mut rx: Receiver<()>) {
-    let addr = BOT_CONFIG
-        .get()
-        .expect("bot config initialized")
-        .metrics_bind_info()
-        .into();
-    tracing::info!("Metrics server listening on http://{}", addr);
+/*
+struct Token(String);
 
-    let serve_future =
-        Server::bind(&addr)
-            .serve(make_service_fn(move |_| {
-                let metrics = metrics.clone();
+#[derive(Debug)]
+enum ApiTokenError {
+    Missing,
+    Invalid,
+}
 
-                async move {
-                    Ok::<_, hyper::Error>(service_fn(move |req| serve_req(req, metrics.clone())))
-                }
-            }))
-            .with_graceful_shutdown(async {
-                rx.recv().await;
-            });
+#[rocket::async_trait]
+impl FromRequest<'r> for Token {
+    type Error = ApiTokenError;
 
-    if let Err(err) = serve_future.await {
-        tracing::warn!("Metrics server error: {}", err);
+    async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
+        let token = request.headers().get_one("token");
+        match token {
+            Some(token) => {
+                Outcome::Success(Token(token.to_string()))
+            }
+            None => Outcome::Failure((Status::Unauthorized, ApiTokenError::Missing)),
+        }
     }
 }
 
-pub fn start(metrics: Arc<Metrics>) -> Sender<()> {
-    let (tx, rx) = tokio::sync::mpsc::channel::<()>(3);
+#[rocket::post("/run-stt")]
+async fn run_stt(token: Token) -> (Status, String) {
 
-    tokio::spawn(_start(metrics, rx));
+    (Status::InternalServerError, "Something went wrong!".to_string())
+}
+*/
 
-    tx
+#[rocket::get("/")]
+async fn root() -> &'static str {
+    "This server doesn't have any content. Go away. *waves you away*"
+}
+
+async fn _start() {
+    let r = rocket::build()
+        .mount("/", rocket::routes![metrics])
+        .mount("/", rocket::routes![root]);
+
+    if let Err(e) = r.launch().await {
+        tracing::warn!("error while starting metrics server: {}", e)
+    };
+}
+
+pub fn start() {
+    tokio::spawn(_start());
 }

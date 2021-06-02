@@ -1,8 +1,11 @@
+use crate::metrics::Metrics;
+use chrono::Utc;
 use deepspeech::Model;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
 use serenity::{http::client::Http, model::id::UserId, prelude::TypeMapKey};
 use sqlx::{postgres::PgConnectOptions, query, PgPool, Pool, Postgres};
+use std::sync::Arc;
 use std::{convert::TryFrom, fs, io, path::Path};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -42,6 +45,8 @@ pub struct PgPoolKey;
 impl TypeMapKey for PgPoolKey {
     type Value = Pool<Postgres>;
 }
+
+pub static PG_POOL: OnceCell<Pool<Postgres>> = OnceCell::new();
 
 /// 1. Opens a connection pool to the database file at the config file, creating it if it doesn't exist
 /// 2. Runs the query given, creating the `prefixes` table (You should add your own things to it to prepare the database)
@@ -114,6 +119,18 @@ pub async fn set_db() -> Pool<Postgres> {
     .await
     .expect("Couldn't create the channel table.");
 
+    query!(
+        "CREATE TABLE IF NOT EXISTS api_keys (
+           api_key TEXT NOT NULL,
+           user_id BIGINT
+         )"
+    )
+    .execute(&db)
+    .await
+    .expect("Couldn't create the API keys table");
+
+    PG_POOL.set(db.clone()).expect("pool was already set");
+
     db
 }
 
@@ -175,8 +192,6 @@ pub struct BotConfig {
     password: String,
     port: u16,
     db: String,
-    metrics_bind_addr: [u8; 4],
-    metrics_bind_port: u16,
 }
 
 /// The static to hold the struct, so that it's global
@@ -248,13 +263,6 @@ impl BotConfig {
     pub fn model_path(&self) -> &String {
         &self.model_path
     }
-    /// The getter for the `metrics_bind` fields, to be used with `get()`
-    pub fn metrics_bind_info(&self) -> ([u8; 4], u16) {
-        (
-            self.metrics_bind_addr,
-            self.metrics_bind_port,
-        )
-    }
 }
 
 /// The struct to hold the information found from the application so that we can set it to a static to avoid API requests
@@ -281,10 +289,10 @@ impl BotInfo {
     /// - If saving BotInfo to BOT_INFO failed
     pub async fn set(token: &str) {
         let http = Http::new_with_token(token);
-        let app_info = http
-            .get_current_application_info()
-            .await
-            .expect("Couldn't get application info");
+        let app_info = match http.get_current_application_info().await {
+            Ok(i) => i,
+            Err(_) => return (),
+        };
         let name = http
             .get_current_user()
             .await
@@ -394,3 +402,6 @@ impl CmdInfo {
         &self.custom_cmds
     }
 }
+
+pub static START_TIME: OnceCell<chrono::DateTime<Utc>> = OnceCell::new();
+pub static METRICS: OnceCell<Arc<Metrics>> = OnceCell::new();

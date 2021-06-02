@@ -1,3 +1,4 @@
+use crate::globals::START_TIME;
 use crate::{auto_join, globals::BotConfig, metrics_counter, utils::do_stats_update};
 use serenity::{
     async_trait,
@@ -56,6 +57,9 @@ impl EventHandler for Handler {
         // An AtomicBool is used because it doesn't require a mutable reference to be changed, as
         // we don't have one due to self being an immutable reference.
         if !self.is_loop_running.load(Ordering::Relaxed) {
+            if let Err(_) = START_TIME.set(self.start_time.into()) {
+                return;
+            };
             self.is_loop_running.swap(true, Ordering::Relaxed);
             info!(
                 "Started client in {}ms!",

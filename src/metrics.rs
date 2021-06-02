@@ -70,6 +70,7 @@ pub struct Metrics {
     pub guilds: IntGauge,
     pub members: IntGauge,
     pub ms_transcribed: IntCounter,
+    pub total_events: IntCounter,
 }
 
 #[allow(clippy::new_without_default)]
@@ -89,12 +90,15 @@ impl Metrics {
         let ms_transcribed =
             IntCounter::new("audio_transcribed", "Milliseconds of audio transcribed").unwrap();
 
+        let events = IntCounter::new("total_events", "Total gateway events").unwrap();
+
         let registry = Registry::new_custom(Some("scripty".into()), None).unwrap();
         registry.register(Box::new(messages_vec)).unwrap();
         registry.register(Box::new(events_vec)).unwrap();
         registry.register(Box::new(guilds_gauge.clone())).unwrap();
         registry.register(Box::new(members_gauge.clone())).unwrap();
         registry.register(Box::new(ms_transcribed.clone())).unwrap();
+        registry.register(Box::new(events.clone())).unwrap();
 
         Self {
             registry,
@@ -104,6 +108,7 @@ impl Metrics {
             guilds: guilds_gauge,
             members: members_gauge,
             ms_transcribed,
+            total_events: events,
         }
     }
 }
@@ -187,7 +192,8 @@ impl MetricsAsync for Metrics {
             _ => {
                 tracing::warn!("Unhandled metrics event: {:?}", event);
             }
-        }
+        };
+        self.total_events.inc();
     }
 }
 

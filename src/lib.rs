@@ -4,12 +4,14 @@
 #![deny(unused_must_use)] // because i suck at `.await`ing futures
 #![deny(unused_imports)] // so as not to pollute compiling output
 use crate::{
+    cmd_credits::CMD_CREDITS_COMMAND,
     cmd_info::CMD_INFO_COMMAND,
     cmd_join::CMD_JOIN_COMMAND,
     cmd_ping::CMD_PING_COMMAND,
     cmd_prefix::CMD_PREFIX_COMMAND,
     cmd_setup::CMD_SETUP_COMMAND,
     cmd_status::CMD_STATUS_COMMAND,
+    cmd_stats::CMD_STATS_COMMAND,
     globals::{BotConfig, BotInfo},
 };
 use serenity::{
@@ -24,8 +26,12 @@ use std::{env, fmt::Display, io::Write};
 pub mod auto_join;
 /// The module for binding the bot to a VC
 pub mod bind;
+/// The module for the `credits` command
+pub mod cmd_credits;
 /// The module for error handling of the commands
 pub mod cmd_error;
+/// The module for the `get_key` command
+pub mod cmd_getkey;
 /// The module for the `help` command
 pub mod cmd_help;
 /// The module for the `info` command
@@ -38,8 +44,12 @@ pub mod cmd_ping;
 pub mod cmd_prefix;
 /// The module for the `setup` command
 pub mod cmd_setup;
+/// The module for the `stats` command
+pub mod cmd_stats;
 /// The module for the `status` command
 pub mod cmd_status;
+/// The module for the command template
+pub mod cmd_template;
 /// The module for a subclass of the Opus decoder that supports Send + Sync
 pub mod decoder;
 /// The module for DeepSpeech utils.
@@ -74,7 +84,7 @@ struct Master;
 struct General;
 
 #[group("Bot Utils")]
-#[commands(cmd_ping, cmd_status)]
+#[commands(cmd_ping, cmd_status, cmd_credits, cmd_stats)]
 struct Utils;
 
 #[group("Voice Commands")]
