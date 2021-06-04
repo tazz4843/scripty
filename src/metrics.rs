@@ -4,6 +4,7 @@ use chrono::naive::NaiveDateTime;
 use chrono::offset::Utc;
 use prometheus::{IntCounter, IntCounterVec, IntGauge, Opts, Registry};
 use prometheus_static_metric::make_static_metric;
+use serde::{Deserialize, Serialize};
 use serenity::{async_trait, model::prelude::*, prelude::*};
 use std::sync::Arc;
 
@@ -62,6 +63,20 @@ make_static_metric! {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct MetricsJson {
+    messages: Messages,
+    ms_transcribed: u64,
+    total_events: u64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Messages {
+    user: u64,
+    other_bot: u64,
+    own: u64,
+}
+
 pub struct Metrics {
     pub registry: Registry,
     pub start_time: NaiveDateTime,
@@ -110,6 +125,46 @@ impl Metrics {
             ms_transcribed,
             total_events: events,
         }
+    }
+
+    /// Load metrics from disk, from a file called `metrics.json`
+    /// # Panics
+    /// This function panics if the metrics file cannot be parsed as JSON. This could happen if it's empty.
+    pub async fn load_metrics(&self) {
+        let buf = match tokio::fs::read("metrics.json").await {
+            Ok(f) => f,
+            Err(_) => return,
+        };
+        let d = serde_json::from_slice::<MetricsJson>(&buf[..])
+            .expect("failed to parse metrics file as JSON");
+        self.messages.user.inc_by(d.messages.user);
+        self.messages.other_bot.inc_by(d.messages.other_bot);
+        self.messages.own.inc_by(d.messages.own);
+        self.ms_transcribed.inc_by(d.ms_transcribed);
+        self.total_events.inc_by(d.total_events);
+    }
+
+    /// Save metrics to disk.
+    /// # Panics
+    /// This function panics if
+    /// * the metrics could not be serialized as JSON
+    /// * something happened while writing to disk
+    pub async fn save_metrics(&self) {
+        let r = MetricsJson {
+            messages: Messages {
+                user: self.messages.user.get(),
+                other_bot: self.messages.other_bot.get(),
+                own: self.messages.own.get(),
+            },
+            ms_transcribed: self.ms_transcribed.get(),
+            total_events: self.total_events.get(),
+        };
+        tokio::fs::write(
+            "metrics.json",
+            serde_json::to_vec(&r).expect("failed to serialize JSON"),
+        )
+        .await
+        .expect("failed to write metrics to disk");
     }
 }
 

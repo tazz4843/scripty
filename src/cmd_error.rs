@@ -6,6 +6,9 @@ use serenity::{
 };
 
 use crate::send_embed;
+use serenity::model::id::ChannelId;
+use serenity::utils::Color;
+use std::fmt::Debug;
 
 /// The function to run on a user-related command error. Informs the user unless its them being
 /// rate limited for the second time
@@ -81,5 +84,27 @@ pub async fn delay_action(ctx: &Context, msg: &Message) {
         .description(err);
 
         send_embed(ctx, msg, true, embed).await
+    };
+}
+
+/// Lets the user know a error happened and also sends a message to the global error handling channel
+pub async fn handle_error<T, E>(ctx: &Context, msg: &Message, error: Result<T, E>)
+where
+    T: Debug,
+    E: Debug,
+{
+    if let Err(error) = error {
+        let _ = ChannelId(796095620410245182)
+            .send_message(ctx, |m| {
+                m.embed(|e| {
+                    e.author(|a| {
+                        a.icon_url(msg.author.face())
+                            .name(format!("{}#{}", msg.author.name, msg.author.discriminator))
+                    })
+                    .color(Color::RED)
+                    .description(format!("{:#?}", error))
+                })
+            })
+            .await;
     };
 }

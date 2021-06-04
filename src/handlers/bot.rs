@@ -1,12 +1,9 @@
 use crate::globals::START_TIME;
-use crate::{auto_join, globals::BotConfig, metrics_counter, utils::do_stats_update};
+use crate::{auto_join, globals::BotConfig, metrics_counter, utils};
 use serenity::{
     async_trait,
     client::{Context, EventHandler},
-    model::{
-        gateway::{Activity, Ready},
-        id::GuildId,
-    },
+    model::id::GuildId,
 };
 use std::{
     sync::{
@@ -38,13 +35,11 @@ impl EventHandler for Handler {
                 crate::log(&ctx, msg).await;
             }
         } else {
-            {
-                crate::log(
-                    &ctx,
-                    "Couldn't get BotConfig to see if guild adds should be added",
-                )
-                .await
-            }
+            crate::log(
+                &ctx,
+                "Couldn't get BotConfig to see if guild adds should be added",
+            )
+            .await
         }
         // it's safe to clone Context, but Arc is cheaper for this use case.
         // Untested claim, just theoretically. :P
@@ -73,11 +68,12 @@ impl EventHandler for Handler {
             let ctx1 = Arc::clone(&ctx);
             let ctx2 = Arc::clone(&ctx);
             let ctx3 = Arc::clone(&ctx);
+            let ctx4 = Arc::clone(&ctx);
             // tokio::spawn creates a new green thread that can run in parallel with the rest of
             // the application.
             tokio::spawn(async move {
                 loop {
-                    do_stats_update(Arc::clone(&ctx1)).await;
+                    utils::do_stats_update(Arc::clone(&ctx1)).await;
                     tokio::time::sleep(Duration::from_secs(30)).await;
                 }
             });
@@ -95,15 +91,13 @@ impl EventHandler for Handler {
                     tokio::time::sleep(Duration::from_secs(300)).await;
                 }
             });
-        }
-    }
 
-    /// Triggered when the bot or a new shard is ready
-    /// - Sets the activity of the bot to `@{bot username} help`
-    async fn ready(&self, ctx: Context, info: Ready) {
-        ctx.set_activity(Activity::playing(
-            format!("@{} help", info.user.name).as_str(),
-        ))
-        .await;
+            tokio::spawn(async move {
+                loop {
+                    utils::update_status(Arc::clone(&ctx4)).await;
+                    tokio::time::sleep(Duration::from_secs(30)).await
+                }
+            });
+        }
     }
 }

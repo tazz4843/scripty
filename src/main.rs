@@ -1,9 +1,8 @@
-use scripty::globals::METRICS;
 use scripty::{
     cmd_error,
     cmd_help::CMD_HELP,
     cmd_prefix::prefix_check,
-    globals::{set_db, BotConfig, BotInfo, CmdInfo, PgPoolKey},
+    globals::{set_db, BotConfig, BotInfo, CmdInfo, PgPoolKey, METRICS},
     handlers::{bot::Handler, raw::RawHandler},
     metrics::Metrics,
     metrics_server, set_dir,
@@ -19,10 +18,10 @@ use songbird::{
     driver::{Config as DriverConfig, CryptoMode},
     SerenityInit, Songbird,
 };
-use std::hint::unreachable_unchecked;
 use std::{
     sync::{atomic::AtomicBool, Arc},
     time::SystemTime,
+    hint::unreachable_unchecked,
 };
 use tokio::sync::RwLock;
 use tracing::{error, info, instrument, subscriber::set_global_default};
@@ -69,7 +68,9 @@ async fn main() {
     let metrics = {
         info!("Initializing metrics client...");
         let st = SystemTime::now();
-        let metrics = Arc::new(Metrics::new());
+        let metrics = Metrics::new();
+        metrics.load_metrics().await;
+        let metrics = Arc::new(metrics);
         METRICS
             .set(metrics.clone())
             .unwrap_or_else(|_| unsafe { unreachable_unchecked() });
@@ -161,14 +162,25 @@ async fn main() {
 
     info!("Starting metrics server...");
     let st = SystemTime::now();
-    metrics_server::start();
+    let server_shutdown = metrics_server::start().await.unwrap_or_else(|_| unsafe {unreachable_unchecked()});
     info!(
         "Started metrics server in {}ms!",
         st.elapsed().expect("system clock rolled back").as_millis()
     );
 
+    let shard_manager = client.shard_manager.clone();
+
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.unwrap();
+        shard_manager.lock().await.shutdown_all().await;
+    });
+
     info!("Starting client...");
     if let Err(e) = client.start_autosharded().await {
         error!("Couldn't start the client: {}", e);
     }
+
+    server_shutdown.notify();
+    metrics.save_metrics().await;
+    // the very last things called, after any final events have been processed
 }

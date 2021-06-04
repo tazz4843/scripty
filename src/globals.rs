@@ -101,7 +101,7 @@ pub async fn set_db() -> Pool<Postgres> {
         "CREATE TABLE IF NOT EXISTS users (
         user_id BIGINT PRIMARY KEY,
         premium_level SMALLINT,
-        premium_count INTEGER
+        premium_count SMALLINT
     )",
     )
     .execute(&db)
@@ -289,10 +289,10 @@ impl BotInfo {
     /// - If saving BotInfo to BOT_INFO failed
     pub async fn set(token: &str) {
         let http = Http::new_with_token(token);
-        let app_info = match http.get_current_application_info().await {
-            Ok(i) => i,
-            Err(_) => return (),
-        };
+        let app_info = http
+            .get_current_application_info()
+            .await
+            .expect("Couldn't set application info!");
         let name = http
             .get_current_user()
             .await

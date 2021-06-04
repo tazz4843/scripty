@@ -1,6 +1,9 @@
 use crate::globals::METRICS;
 use prometheus::{Encoder, TextEncoder};
 use std::hint::unreachable_unchecked;
+use tokio::sync::oneshot;
+use rocket::Shutdown;
+use rocket::tokio::sync::oneshot::Receiver;
 /*
 use rocket::http::Status;
 use rocket::outcome::Outcome;
@@ -57,16 +60,23 @@ async fn root() -> &'static str {
     "This server doesn't have any content. Go away. *waves you away*"
 }
 
-async fn _start() {
+async fn _start(tx: oneshot::Sender<Shutdown>) {
     let r = rocket::build()
         .mount("/", rocket::routes![metrics])
-        .mount("/", rocket::routes![root]);
+        .mount("/", rocket::routes![root])
+        .ignite()
+        .await
+        .expect("failed to ignite server");
+
+    tx.send(r.shutdown()).expect("receiver was dropped: don't do that!");
 
     if let Err(e) = r.launch().await {
         tracing::warn!("error while starting metrics server: {}", e)
     };
 }
 
-pub fn start() {
-    tokio::spawn(_start());
+pub fn start() -> Receiver<Shutdown> {
+    let (tx, rx) = oneshot::channel::<Shutdown>();
+    tokio::spawn(_start(tx));
+    rx
 }

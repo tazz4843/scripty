@@ -28,11 +28,7 @@ async fn cmd_getkey(ctx: &Context, msg: &Message) -> CommandResult {
         {
             Ok(val) => {
                 if let Some(val) = val.premium_level {
-                    if val >= 1 {
-                        true
-                    } else {
-                        false
-                    }
+                    val >= 1
                 } else {
                     false
                 }

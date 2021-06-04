@@ -10,8 +10,8 @@ use crate::{
     cmd_ping::CMD_PING_COMMAND,
     cmd_prefix::CMD_PREFIX_COMMAND,
     cmd_setup::CMD_SETUP_COMMAND,
-    cmd_status::CMD_STATUS_COMMAND,
     cmd_stats::CMD_STATS_COMMAND,
+    cmd_status::CMD_STATUS_COMMAND,
     globals::{BotConfig, BotInfo},
 };
 use serenity::{
@@ -26,6 +26,8 @@ use std::{env, fmt::Display, io::Write};
 pub mod auto_join;
 /// The module for binding the bot to a VC
 pub mod bind;
+/// The module for the `claim_premium` command
+pub mod cmd_claimpremium;
 /// The module for the `credits` command
 pub mod cmd_credits;
 /// The module for error handling of the commands

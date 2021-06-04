@@ -1,12 +1,12 @@
 use crate::globals::START_TIME;
 use crate::metrics::Metrics;
+use chrono::Utc;
 use serenity::{
     client::Context,
     framework::standard::{macros::command, CommandResult},
     model::channel::Message,
 };
 use std::hint::unreachable_unchecked;
-use chrono::Utc;
 
 #[command("stats")]
 #[bucket = "expensive"]
@@ -18,7 +18,12 @@ async fn cmd_stats(ctx: &Context, msg: &Message) -> CommandResult {
     let messages = metrics.events.message_create.get();
     let total_events = metrics.total_events.get();
     let ms_transcribed = metrics.ms_transcribed.get();
-    let total_events_per_sec = total_events / START_TIME.get().unwrap_or_else(|| unsafe {unreachable_unchecked()}).signed_duration_since(Utc::now()).num_seconds() as u64;
+    let total_events_per_sec = total_events
+        / START_TIME
+            .get()
+            .unwrap_or_else(|| unsafe { unreachable_unchecked() })
+            .signed_duration_since(Utc::now())
+            .num_seconds() as u64;
 
     if let Err(e) = msg
         .channel_id
