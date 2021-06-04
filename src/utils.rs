@@ -183,7 +183,7 @@ pub async fn update_status(ctx: Arc<Context>) {
 
     for i in shard_manager.runners.lock().await.iter() {
         let latency = match i.1.latency {
-            Some(l) => l.as_micros() as f64 * 1000_f64,
+            Some(l) => l.as_micros() as f64 / 1000_f64,
             None => 0_f64,
         };
         let activity = Activity::playing(format!(
