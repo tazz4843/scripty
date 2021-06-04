@@ -8,7 +8,7 @@ In a nutshell, Scripty is a speech to text bot for Discord voice chats.
 
 ## Invite the Bot
 
-The bot is still in early alpha. Bugs are expected.
+The bot is pretty much feature-complete and should be working... hopefully.
 
 https://scripty.imaskeleton.me/invite
 
@@ -26,12 +26,19 @@ https://scripty.imaskeleton.me/invite
 
 No support for self-hosting will be given.
 
-Building the bot requires Nightly Rust, with `libdeepspeech.so` in your `LD_LIBRARY_PATH` 
+Building the bot requires Nightly Rust, with [`libdeepspeech.so`](https://github.com/mozilla/DeepSpeech) in your `LD_LIBRARY_PATH` 
 and `LIBRARY_PATH` environment variables.
+```bash
+LIBRARY_PATH="/path/to/libdeepspeech/" RUSTFLAGS="-Ctarget-cpu=native" cargo build --release
+```
 
 ### It doesn't work on Windows!
 Yeah I know. Windows support is not planned, nor will any PRs for it be accepted.
 If you make one, it will be closed and **not** merged.
+
+Most contributors disappear after a short time, leaving me to maintain everything.
+I can't do that for multiple OSes, especially considering I have no Windows devices
+to test on.
 
 
 ## More Info
