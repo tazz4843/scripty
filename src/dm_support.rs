@@ -1,13 +1,11 @@
-use serenity::model::prelude::{
-    ChannelCategory, ChannelId , Message, UserId, Webhook,
-};
+use serenity::model::prelude::{ChannelCategory, ChannelId, Message, UserId, Webhook};
 use serenity::prelude::Context;
 /// Inspired by https://github.com/DuckHunt-discord/DHV4/blob/master/src/cogs/private_messages_support.py
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{error, warn, info};
+use tracing::{error, info, warn};
 
 pub static SUPPORT_OPEN_MESSAGE: &'static str =
     "Welcome to Scripty DM support.\n\
@@ -39,7 +37,10 @@ impl DmSupportInfo {
         }
 
         if self.blocked_users.read().await.contains(&message.author.id) {
-            info!("ignoring {}#{}'s message due to blacklist", message.author.name, message.author.id);
+            info!(
+                "ignoring {}#{}'s message due to blacklist",
+                message.author.name, message.author.id
+            );
             return;
         }
 

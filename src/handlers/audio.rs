@@ -202,6 +202,18 @@ impl VoiceEventHandler for Receiver {
                         }
                     };
 
+                    let u = match self.context.cache.user(uid).await {
+                        Some(u) => {
+                            if u.bot {
+                                return None;
+                            }
+                            u
+                        }
+                        None => {
+                            return None;
+                        }
+                    };
+
                     let webhook = Arc::clone(&self.webhook);
                     let context = Arc::clone(&self.context);
 
@@ -209,24 +221,20 @@ impl VoiceEventHandler for Receiver {
                         match run_stt(audio).await {
                             Ok(r) => {
                                 if !r.is_empty() {
-                                    if let Some(u) = context.cache.user(uid).await {
-                                        let profile_picture = match u.avatar {
-                                            Some(a) => format!(
-                                                "https://cdn.discordapp.com/avatars/{}/{}.png",
-                                                u.id, a
-                                            ),
-                                            None => u.default_avatar_url(),
-                                        };
-                                        let name = u.name;
+                                    let profile_picture = match u.avatar {
+                                        Some(a) => format!(
+                                            "https://cdn.discordapp.com/avatars/{}/{}.png",
+                                            u.id, a
+                                        ),
+                                        None => u.default_avatar_url(),
+                                    };
+                                    let name = u.name;
 
-                                        let _ = webhook
-                                            .execute(&context, false, |m| {
-                                                m.avatar_url(profile_picture)
-                                                    .content(r)
-                                                    .username(name)
-                                            })
-                                            .await;
-                                    }
+                                    let _ = webhook
+                                        .execute(&context, false, |m| {
+                                            m.avatar_url(profile_picture).content(r).username(name)
+                                        })
+                                        .await;
                                 }
                             }
                             Err(e) => {
