@@ -1,9 +1,9 @@
 use crate::globals::METRICS;
 use prometheus::{Encoder, TextEncoder};
+use rocket::tokio::sync::oneshot::Receiver;
+use rocket::Shutdown;
 use std::hint::unreachable_unchecked;
 use tokio::sync::oneshot;
-use rocket::Shutdown;
-use rocket::tokio::sync::oneshot::Receiver;
 /*
 use rocket::http::Status;
 use rocket::outcome::Outcome;
@@ -68,7 +68,8 @@ async fn _start(tx: oneshot::Sender<Shutdown>) {
         .await
         .expect("failed to ignite server");
 
-    tx.send(r.shutdown()).expect("receiver was dropped: don't do that!");
+    tx.send(r.shutdown())
+        .expect("receiver was dropped: don't do that!");
 
     if let Err(e) = r.launch().await {
         tracing::warn!("error while starting metrics server: {}", e)

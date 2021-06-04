@@ -69,7 +69,7 @@ pub async fn run_stt(input_data: Vec<i16>) -> Result<String, DeepspeechError> {
             from_iter(
                 input_data
                     .iter()
-                    .map(|v| [(*v - 0x80) << 8])
+                    .map(|v| [*v])
                     .collect::<Vec<_>>(),
             ),
             interpolator,

@@ -217,7 +217,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
         },
         _ => {
             msg.channel_id
-                .say(&ctx, "This isn't a voice channel! Try again.")
+                .say(&ctx, "This isn't a guild channel! Try again.")
                 .await?;
             return Ok(());
         }

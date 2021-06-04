@@ -56,6 +56,8 @@ pub mod cmd_template;
 pub mod decoder;
 /// The module for DeepSpeech utils.
 pub mod deepspeech;
+/// The module for direct message support
+pub mod dm_support;
 /// The module for the statics and structs to save the statics to
 pub mod globals;
 /// The module for event handlers

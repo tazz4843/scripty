@@ -19,9 +19,9 @@ use songbird::{
     SerenityInit, Songbird,
 };
 use std::{
+    hint::unreachable_unchecked,
     sync::{atomic::AtomicBool, Arc},
     time::SystemTime,
-    hint::unreachable_unchecked,
 };
 use tokio::sync::RwLock;
 use tracing::{error, info, instrument, subscriber::set_global_default};
@@ -162,7 +162,9 @@ async fn main() {
 
     info!("Starting metrics server...");
     let st = SystemTime::now();
-    let server_shutdown = metrics_server::start().await.unwrap_or_else(|_| unsafe {unreachable_unchecked()});
+    let server_shutdown = metrics_server::start()
+        .await
+        .unwrap_or_else(|_| unsafe { unreachable_unchecked() });
     info!(
         "Started metrics server in {}ms!",
         st.elapsed().expect("system clock rolled back").as_millis()
