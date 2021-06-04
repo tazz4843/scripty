@@ -19,8 +19,8 @@ https://scripty.imaskeleton.me/invite
 | Audio Receive | yes |
 | Audio Processing | yes |
 | Speech To Text | yes 🎉 |
-| Send to Chat | no |
-| Database | partially (migrate to Postgres) |
+| Send to Chat | yes |
+| Database | yes |
 
 ## Self-hosting
 
