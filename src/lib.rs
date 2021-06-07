@@ -1,6 +1,7 @@
 #![feature(async_closure)] // audio.rs
 #![feature(in_band_lifetimes)] // audio.rs
-#![feature(map_first_last)] // audio.rs
+#![feature(map_first_last)]
+#![feature(slice_as_chunks)] // audio.rs
 #![deny(unused_must_use)] // because i suck at `.await`ing futures
 #![deny(unused_imports)] // so as not to pollute compiling output
 use crate::{
