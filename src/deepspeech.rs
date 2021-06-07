@@ -3,6 +3,7 @@ use dasp_interpolate::linear::Linear;
 use dasp_signal::{from_iter, interpolate::Converter, Signal};
 use deepspeech::{errors::DeepspeechError, Model};
 use std::path::Path;
+use std::hint::unreachable_unchecked;
 
 // The model has been trained on this specific
 // sample rate.
@@ -63,6 +64,17 @@ pub async fn run_stt(input_data: Vec<i16>) -> Result<String, DeepspeechError> {
             conv.until_exhausted().map(|v| v[0]).collect()
         };
         */
+
+        let input_data = {
+            let mut result = Vec::new();
+            let (_, chunks) = input_data.as_rchunks::<2>();
+            for chunk in chunks {
+                let left = chunk.get(0).unwrap_or_else(|| unsafe {unreachable_unchecked()}).clone();
+                let right = chunk.get(1).unwrap_or_else(|| unsafe {unreachable_unchecked()}).clone();
+                result.push((left+right)/2_i16);
+            }
+            result
+        };
 
         let interpolator = Linear::new([0i16], [0]);
         let conv = Converter::from_hz_to_hz(
