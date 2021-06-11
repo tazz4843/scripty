@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use serenity::model::channel::GuildChannel;
 use serenity::model::prelude::{ChannelCategory, ChannelId, Message, UserId, Webhook};
 use serenity::prelude::Context;
@@ -9,7 +10,7 @@ use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 use serenity::utils::Color;
 
-pub static SUPPORT_OPEN_MESSAGE: &'static str =
+pub static SUPPORT_OPEN_MESSAGE: &str =
     "Welcome to Scripty DM support.\n\
     Messages here are relayed to a select group of volunteers and bot moderators to help you use the bot.\
     For general questions, we also have a support server \
@@ -144,7 +145,6 @@ impl DmSupportInfo {
                     ))
             })
             .await;
-        ()
     }
 
     pub async fn handle_support_response(&self, ctx: &Context, msg: &Message) {

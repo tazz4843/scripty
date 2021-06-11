@@ -71,6 +71,12 @@ pub mod metrics_counter;
 pub mod metrics_server;
 /// The module for a few useful utilities
 pub mod utils;
+/// The module for the `rejoin_all` command
+pub mod cmd_rejoinall;
+/// The module to handle message sending errors
+pub mod msg_handler;
+/// The module for the `shutdown` command
+pub mod cmd_shutdown;
 
 /// The hidden group for all the commands to be added to
 /// - ONLY add your own groups to `sub_groups`
