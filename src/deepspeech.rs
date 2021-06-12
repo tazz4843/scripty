@@ -2,8 +2,8 @@ use crate::globals::BotConfig;
 use dasp_interpolate::linear::Linear;
 use dasp_signal::{from_iter, interpolate::Converter, Signal};
 use deepspeech::{errors::DeepspeechError, Model};
-use std::path::Path;
 use std::hint::unreachable_unchecked;
+use std::path::Path;
 
 // The model has been trained on this specific
 // sample rate.
@@ -69,9 +69,15 @@ pub async fn run_stt(input_data: Vec<i16>) -> Result<String, DeepspeechError> {
             let mut result = Vec::new();
             let (_, chunks) = input_data.as_rchunks::<4>();
             for chunk in chunks {
-                let left = chunk.get(0).unwrap_or_else(|| unsafe {unreachable_unchecked()}).clone();
-                let right = chunk.get(1).unwrap_or_else(|| unsafe {unreachable_unchecked()}).clone();
-                result.push((left+right)/2_i16);
+                let left = chunk
+                    .get(0)
+                    .unwrap_or_else(|| unsafe { unreachable_unchecked() })
+                    .clone();
+                let right = chunk
+                    .get(1)
+                    .unwrap_or_else(|| unsafe { unreachable_unchecked() })
+                    .clone();
+                result.push((left + right) / 2_i16);
             }
             result
         };

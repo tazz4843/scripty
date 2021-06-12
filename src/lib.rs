@@ -11,11 +11,11 @@ use crate::{
     cmd_join::CMD_JOIN_COMMAND,
     cmd_ping::CMD_PING_COMMAND,
     cmd_prefix::CMD_PREFIX_COMMAND,
+    cmd_rejoinall::CMD_REJOIN_ALL_COMMAND,
     cmd_setup::CMD_SETUP_COMMAND,
+    cmd_shutdown::CMD_SHUTDOWN_COMMAND,
     cmd_stats::CMD_STATS_COMMAND,
     cmd_status::CMD_STATUS_COMMAND,
-    cmd_rejoinall::CMD_REJOIN_ALL_COMMAND,
-    cmd_shutdown::CMD_SHUTDOWN_COMMAND,
     globals::{BotConfig, BotInfo},
 };
 use serenity::{
@@ -48,8 +48,12 @@ pub mod cmd_join;
 pub mod cmd_ping;
 /// The module for the `prefix` command
 pub mod cmd_prefix;
+/// The module for the `rejoin_all` command
+pub mod cmd_rejoinall;
 /// The module for the `setup` command
 pub mod cmd_setup;
+/// The module for the `shutdown` command
+pub mod cmd_shutdown;
 /// The module for the `stats` command
 pub mod cmd_stats;
 /// The module for the `status` command
@@ -72,14 +76,10 @@ pub mod metrics;
 pub mod metrics_counter;
 /// The module for the Prometheus webserver
 pub mod metrics_server;
-/// The module for a few useful utilities
-pub mod utils;
-/// The module for the `rejoin_all` command
-pub mod cmd_rejoinall;
 /// The module to handle message sending errors
 pub mod msg_handler;
-/// The module for the `shutdown` command
-pub mod cmd_shutdown;
+/// The module for a few useful utilities
+pub mod utils;
 
 /// The hidden group for all the commands to be added to
 /// - ONLY add your own groups to `sub_groups`

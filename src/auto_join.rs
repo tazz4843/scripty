@@ -8,7 +8,10 @@ use std::hint;
 use std::sync::Arc;
 use tracing::{debug, warn};
 
-pub async fn auto_join(ctx: Arc<Context>) {
+/// Automatically joins all voice chats the bot can see in its DB.
+/// `ctx` is a Arc<Context> containing the DB pool and Songbird client
+/// `force` decides whether to forcibly rejoin a voice chat. This will result in errors at some point.
+pub async fn auto_join(ctx: Arc<Context>, force: bool) {
     let data = ctx.data.read().await;
     let pool = data.get::<PgPoolKey>().unwrap_or_else(|| unsafe {
         hint::unreachable_unchecked()
@@ -22,17 +25,19 @@ pub async fn auto_join(ctx: Arc<Context>) {
                 Some(row) => {
                     let guild_id = row.guild_id;
 
-                    let already_connected = songbird::get(&ctx)
-                        .await
-                        .unwrap_or_else(|| unsafe {
-                            hint::unreachable_unchecked() // SAFETY: this should absolutely never happen if Songbird is registered at client init.
-                                                          // if it isn't registered, UB would result anyways
-                        })
-                        .get::<u64>(guild_id as u64)
-                        .is_some();
-                    if already_connected {
-                        continue;
-                    };
+                    if !force {
+                        let already_connected = songbird::get(&ctx)
+                            .await
+                            .unwrap_or_else(|| unsafe {
+                                hint::unreachable_unchecked() // SAFETY: this should absolutely never happen if Songbird is registered at client init.
+                                // if it isn't registered, UB would result anyways
+                            })
+                            .get::<u64>(guild_id as u64)
+                            .is_some();
+                        if already_connected {
+                            continue;
+                        };
+                    }
 
                     let vc_id = match row.default_bind {
                         Some(v) => v,

@@ -7,7 +7,7 @@ use scripty::{
     metrics::Metrics,
     metrics_server, set_dir,
     utils::{ShardManagerWrapper, DECODE_TYPE},
-    CONFIG_GROUP, GENERAL_GROUP, MASTER_GROUP, UTILS_GROUP, VOICE_GROUP, BOTOWNER_GROUP
+    BOTOWNER_GROUP, CONFIG_GROUP, GENERAL_GROUP, MASTER_GROUP, UTILS_GROUP, VOICE_GROUP,
 };
 use serenity::{
     client::bridge::gateway::GatewayIntents,
@@ -127,7 +127,8 @@ async fn main() {
         .group(&UTILS_GROUP)
         .group(&VOICE_GROUP)
         .group(&CONFIG_GROUP)
-        .group(&MASTER_GROUP).group(&BOTOWNER_GROUP);
+        .group(&MASTER_GROUP)
+        .group(&BOTOWNER_GROUP);
 
     let mut client = Client::builder(&config.token())
         .intents(
