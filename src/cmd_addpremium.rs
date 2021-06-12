@@ -10,8 +10,9 @@ use serenity::framework::standard::Args;
 use crate::msg_handler::handle_message;
 
 #[command("add_premium")]
+#[description = "Adds premium to a guild. arg 1 is the level of premium, arg 2 is the guild ID."]
 #[owners_only]
-async fn cmd_addpremium(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn cmd_add_premium(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let success = {
         let data = ctx.data.read().await;
         let db = data

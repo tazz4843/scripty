@@ -16,6 +16,7 @@ use crate::{
     cmd_shutdown::CMD_SHUTDOWN_COMMAND,
     cmd_stats::CMD_STATS_COMMAND,
     cmd_status::CMD_STATUS_COMMAND,
+    cmd_addpremium::CMD_ADD_PREMIUM_COMMAND,
     globals::{BotConfig, BotInfo},
 };
 use serenity::{
@@ -110,7 +111,7 @@ struct Voice;
 struct Config;
 
 #[group("Bot Owner Commands")]
-#[commands(cmd_rejoin_all, cmd_shutdown)]
+#[commands(cmd_rejoin_all, cmd_shutdown, cmd_add_premium)]
 struct BotOwner;
 
 /// 1. Sets the colour of the `embed` to `11534368` (The baseline error colour according to Material Design guidelines) if `is_error` is `true`, if not, sets it to the colour in the config
