@@ -31,7 +31,7 @@ pub mod auto_join;
 /// The module for binding the bot to a VC
 pub mod bind;
 /// The module for the `claim_premium` command
-pub mod cmd_claimpremium;
+pub mod cmd_addpremium;
 /// The module for the `credits` command
 pub mod cmd_credits;
 /// The module for error handling of the commands
