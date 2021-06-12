@@ -4,6 +4,7 @@
 #![feature(slice_as_chunks)] // audio.rs
 #![deny(unused_must_use)] // because i suck at `.await`ing futures
 #![deny(unused_imports)] // so as not to pollute compiling output
+
 use crate::{
     cmd_credits::CMD_CREDITS_COMMAND,
     cmd_info::CMD_INFO_COMMAND,
@@ -13,6 +14,8 @@ use crate::{
     cmd_setup::CMD_SETUP_COMMAND,
     cmd_stats::CMD_STATS_COMMAND,
     cmd_status::CMD_STATUS_COMMAND,
+    cmd_rejoinall::CMD_REJOIN_ALL_COMMAND,
+    cmd_shutdown::CMD_SHUTDOWN_COMMAND,
     globals::{BotConfig, BotInfo},
 };
 use serenity::{
@@ -105,6 +108,10 @@ struct Voice;
 #[group("Config Commands")]
 #[commands(cmd_setup)]
 struct Config;
+
+#[group("Bot Owner Commands")]
+#[commands(cmd_rejoin_all, cmd_shutdown)]
+struct BotOwner;
 
 /// 1. Sets the colour of the `embed` to `11534368` (The baseline error colour according to Material Design guidelines) if `is_error` is `true`, if not, sets it to the colour in the config
 /// 2. Sends the `embed` to the `channel_id` of `reply`

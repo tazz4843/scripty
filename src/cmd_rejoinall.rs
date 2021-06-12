@@ -9,7 +9,7 @@ use std::sync::Arc;
 #[command("rejoin_all")]
 #[description = "Forces the bot to rejoin every single voice chat it is in."]
 #[owners_only]
-async fn cmd_ping(ctx: &Context, msg: &Message) -> CommandResult {
+async fn cmd_rejoin_all(ctx: &Context, msg: &Message) -> CommandResult {
     let mut msg1 = match handle_message(ctx, msg, |m| {
         m.content("Reconnecting to all voice chats...")
     }).await {

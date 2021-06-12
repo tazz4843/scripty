@@ -11,7 +11,7 @@ use std::hint::unreachable_unchecked;
 #[description = "Begins the bot shutdown process. This command might not update depending on \
 whether the stack overflows before exit."]
 #[owners_only]
-async fn cmd_ping(ctx: &Context, msg: &Message) -> CommandResult {
+async fn cmd_shutdown(ctx: &Context, msg: &Message) -> CommandResult {
     if handle_message(ctx, msg, |m| {
         m.content("Beginning shutdown...")
     }).await.is_none() {
