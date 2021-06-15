@@ -6,28 +6,9 @@ on:
       - main
 
 
-name: Check and Lint
+name: Linters
 
 jobs:
-  check:
-    name: Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: "install ld"
-        run: "sudo apt install lld -y"
-
-      - uses: actions/checkout@v2
-
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
-
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest
