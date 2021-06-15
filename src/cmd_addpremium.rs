@@ -1,4 +1,6 @@
 use crate::globals::PgPoolKey;
+use crate::msg_handler::handle_message;
+use serenity::framework::standard::Args;
 use serenity::{
     client::Context,
     framework::standard::{macros::command, CommandResult},
@@ -6,8 +8,6 @@ use serenity::{
 };
 use sqlx::query;
 use std::hint::unreachable_unchecked;
-use serenity::framework::standard::Args;
-use crate::msg_handler::handle_message;
 
 #[command("add_premium")]
 #[description = "Adds premium to a guild. arg 1 is the level of premium, arg 2 is the guild ID."]
@@ -23,7 +23,8 @@ async fn cmd_add_premium(ctx: &Context, msg: &Message, mut args: Args) -> Comman
             Err(e) => {
                 handle_message(ctx, msg, |m| {
                     m.content(format!("failed to parse #1 as i64 {}", e))
-                }).await;
+                })
+                .await;
                 return Ok(());
             }
         };
@@ -32,19 +33,22 @@ async fn cmd_add_premium(ctx: &Context, msg: &Message, mut args: Args) -> Comman
             Err(e) => {
                 handle_message(ctx, msg, |m| {
                     m.content(format!("failed to parse #2 as i64 {}", e))
-                }).await;
+                })
+                .await;
                 return Ok(());
             }
         };
         query!(
             "UPDATE guilds SET premium_level = $1 WHERE guild_id = $2",
-            level, guild_id
+            level,
+            guild_id
         )
         .execute(db)
         .await
     };
     handle_message(ctx, msg, |m| {
         m.content(format!("here's the result: {:?}", success))
-    }).await;
+    })
+    .await;
     Ok(())
 }

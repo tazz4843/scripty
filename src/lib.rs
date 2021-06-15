@@ -6,6 +6,7 @@
 #![deny(unused_imports)] // so as not to pollute compiling output
 
 use crate::{
+    cmd_addpremium::CMD_ADD_PREMIUM_COMMAND,
     cmd_credits::CMD_CREDITS_COMMAND,
     cmd_info::CMD_INFO_COMMAND,
     cmd_join::CMD_JOIN_COMMAND,
@@ -16,7 +17,6 @@ use crate::{
     cmd_shutdown::CMD_SHUTDOWN_COMMAND,
     cmd_stats::CMD_STATS_COMMAND,
     cmd_status::CMD_STATUS_COMMAND,
-    cmd_addpremium::CMD_ADD_PREMIUM_COMMAND,
     globals::{BotConfig, BotInfo},
 };
 use serenity::{
