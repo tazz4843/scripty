@@ -20,6 +20,9 @@ jobs:
           default: true
           override: true
 
+      - name: "install ld"
+        run: "apt install ldd -y"
+
       - name: "get libdeepspeech"
         run: "mkdir -p ds/cpu ds/gpu && cd ds/cpu && curl -L 'https://github.com/mozilla/DeepSpeech/releases/download/v0.9.3/native_client.amd64.cpu.linux.tar.xz' | tar xJ && cd ../gpu && curl -L 'https://github.com/mozilla/DeepSpeech/releases/download/v0.9.3/native_client.amd64.cuda.linux.tar.xz' | tar xJ && cd ../.."
 
