@@ -1,6 +1,10 @@
 name: Build on Push
 
-on: [push]
+on:
+  push:
+    paths:
+      - "src/**.rs"
+      - "Cargo.toml"
 
 jobs:
   build:
