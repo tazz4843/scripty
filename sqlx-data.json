@@ -1,0 +1,307 @@
+{
+  "db": "PostgreSQL",
+  "0850021d1251968df92e2cf046aacecadeb2f23be73e7f6ad95ee7c048e8bfd9": {
+    "query": "CREATE TABLE IF NOT EXISTS prefixes (\n        guild_id BIGINT PRIMARY KEY,\n        prefix TEXT\n    )",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": []
+      },
+      "nullable": []
+    }
+  },
+  "08fa67098671af05629a5267b32be80192db8600053c03ec524807f7b8073803": {
+    "query": "INSERT INTO guilds\n              (guild_id, default_bind, output_channel, premium_level)\n            VALUES ($1, $2, $3, $4)\n              ON CONFLICT (guild_id) DO UPDATE\n                SET default_bind = $2, output_channel = $3, premium_level = $4;",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8",
+          "Int8",
+          "Int2"
+        ]
+      },
+      "nullable": []
+    }
+  },
+  "094de31169f71e9b65c323100b1a975e47884ea721b675ade31e139ed228e3ac": {
+    "query": "UPDATE guilds SET premium_level = $1 WHERE guild_id = $2",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": [
+          "Int2",
+          "Int8"
+        ]
+      },
+      "nullable": []
+    }
+  },
+  "0c1348f4c105eef1b5a0dbb08207b08176e8858c31f3de3b5255240fe45c8ab7": {
+    "query": "INSERT INTO channels (channel_id, webhook_token, webhook_id)\n            VALUES($1, $2, $3) ON CONFLICT (channel_id) DO UPDATE SET webhook_token = $2, webhook_id = $3;",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Text",
+          "Int8"
+        ]
+      },
+      "nullable": []
+    }
+  },
+  "2f36395bb5dfe10a4a3931c0f45c3265bcbee2291cecc1c56afc9e6634747ebf": {
+    "query": "SELECT\n           prefix\n         FROM\n           prefixes\n         WHERE\n           guild_id = $1",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "prefix",
+          "type_info": "Text"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      },
+      "nullable": [
+        true
+      ]
+    }
+  },
+  "38e90b392acff4554d61b9f064cc5bb8eb2ef3b4cdcf163db46cffdc0eb7d054": {
+    "query": "SELECT premium_level FROM guilds WHERE guild_id = $1",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "premium_level",
+          "type_info": "Int2"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "480dd2f3cdecafcb3d5bad094483c1530f5798a23e3e679d5e98a14b4d76c217": {
+    "query": "CREATE TABLE IF NOT EXISTS api_keys (\n           api_key TEXT NOT NULL,\n           user_id BIGINT\n         )",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": []
+      },
+      "nullable": []
+    }
+  },
+  "5ee61d02dfbb1f444284ea104445dec73fb38e3c3c1ce85d779f8d2f7163d416": {
+    "query": "INSERT INTO prefixes\n                 (guild_id, prefix)\n             VALUES\n                 ($1, $2)\n             ON CONFLICT\n                 (guild_id)\n             DO UPDATE SET\n                 prefix = $2;",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Text"
+        ]
+      },
+      "nullable": []
+    }
+  },
+  "a159228713042dd76754f9c19bb196486e48244f22da4ec11e03cefc53be34f0": {
+    "query": "DELETE FROM channels WHERE channel_id = $1",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      },
+      "nullable": []
+    }
+  },
+  "a7fa133d8061feb9b512a339985a00f14a99599ce8fbfe7c4dd75327a72efc5a": {
+    "query": "CREATE TABLE IF NOT EXISTS channels (\n        channel_id BIGINT PRIMARY KEY,\n        webhook_token TEXT,\n        webhook_id BIGINT\n    )",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": []
+      },
+      "nullable": []
+    }
+  },
+  "afeb95b4606d79aade15df4e104f5093e6ae73b5b17a0ea43b5704b76493b2f2": {
+    "query": "CREATE TABLE IF NOT EXISTS guilds (\n        guild_id BIGINT PRIMARY KEY,\n        default_bind BIGINT,\n        output_channel BIGINT,\n        premium_level SMALLINT NOT NULL\n    )",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": []
+      },
+      "nullable": []
+    }
+  },
+  "b5b7a279260216d61719ca9941ea66a5b10ada7c27dda000c7320d117c9375d2": {
+    "query": "INSERT INTO api_keys VALUES ($1, $2)",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Int8"
+        ]
+      },
+      "nullable": []
+    }
+  },
+  "b9d6386995382a6b9f8daf5066e9a33d0478808e4fbb92bb895b645f4f177e9d": {
+    "query": "SELECT api_key FROM api_keys WHERE user_id = $1",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "api_key",
+          "type_info": "Text"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "c411ba0e890eb2ac6b3ecb494a798a627dd02878dad719d4db9b0402798379b5": {
+    "query": "CREATE TABLE IF NOT EXISTS users (\n        user_id BIGINT PRIMARY KEY,\n        premium_level SMALLINT,\n        premium_count SMALLINT\n    )",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": []
+      },
+      "nullable": []
+    }
+  },
+  "c75638a6ced590eab820119be35b2f5e526e9a0492ff00df4b8c90bf611120c5": {
+    "query": "SELECT webhook_token, webhook_id FROM channels WHERE channel_id = $1",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "webhook_token",
+          "type_info": "Text"
+        },
+        {
+          "ordinal": 1,
+          "name": "webhook_id",
+          "type_info": "Int8"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      },
+      "nullable": [
+        true,
+        true
+      ]
+    }
+  },
+  "e25fb5de5ecef2b00b011a4952c7645cafb42a6583423b884098b8344e74e444": {
+    "query": "SELECT prefix FROM prefixes WHERE guild_id = $1",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "prefix",
+          "type_info": "Text"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      },
+      "nullable": [
+        true
+      ]
+    }
+  },
+  "ea359a04fd6d53a31f47e1d69cd9851f4595142e3dfb866a44dc2d3aa6e62b04": {
+    "query": "DELETE FROM guilds WHERE guild_id = $1",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      },
+      "nullable": []
+    }
+  },
+  "f2f065836ccd89c512070fad43b04c5e0a842c6cb7ba09dac4439239db761f74": {
+    "query": "SELECT premium_level FROM users WHERE user_id = $1",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "premium_level",
+          "type_info": "Int2"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      },
+      "nullable": [
+        true
+      ]
+    }
+  },
+  "fccb7063cbdd9b27e84fd16ddc8d7ddf5dfe37137fff153765d50ee298c6b32c": {
+    "query": "SELECT * FROM guilds",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "guild_id",
+          "type_info": "Int8"
+        },
+        {
+          "ordinal": 1,
+          "name": "default_bind",
+          "type_info": "Int8"
+        },
+        {
+          "ordinal": 2,
+          "name": "output_channel",
+          "type_info": "Int8"
+        },
+        {
+          "ordinal": 3,
+          "name": "premium_level",
+          "type_info": "Int2"
+        }
+      ],
+      "parameters": {
+        "Left": []
+      },
+      "nullable": [
+        false,
+        true,
+        true,
+        false
+      ]
+    }
+  }
+}
