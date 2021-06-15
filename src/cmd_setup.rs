@@ -346,7 +346,14 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                     is_error = false;
                     embed
                         .title("Set up successfully!")
-                        .description("Give the bot a few moments to join the VC.");
+                        .description("Give the bot a few moments to join the VC.\n\n\
+                        **PLEASE NOTE!**\n\
+                        Accuracy will be *extremely* low, unless you are in a perfectly silent room \
+                        with a top-of-the-line mic speaking clearly, as well as being a 18 to 24 year \
+                        old American male. The devs are trying their hardest to fix this, but it's not \
+                        easy. If you have a spare (Linux) computer with 3TB of storage and a Nvidia \
+                        GPU with at least 8GB VRAM that we can borrow, we would love to hear from you. \
+                        Please get in touch with 0/0 on the support server: https://discord.gg/zero-zero");
                 }
             }
         }

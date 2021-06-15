@@ -4,15 +4,19 @@
 #![feature(slice_as_chunks)] // audio.rs
 #![deny(unused_must_use)] // because i suck at `.await`ing futures
 #![deny(unused_imports)] // so as not to pollute compiling output
+
 use crate::{
     cmd_credits::CMD_CREDITS_COMMAND,
     cmd_info::CMD_INFO_COMMAND,
     cmd_join::CMD_JOIN_COMMAND,
     cmd_ping::CMD_PING_COMMAND,
     cmd_prefix::CMD_PREFIX_COMMAND,
+    cmd_rejoinall::CMD_REJOIN_ALL_COMMAND,
     cmd_setup::CMD_SETUP_COMMAND,
+    cmd_shutdown::CMD_SHUTDOWN_COMMAND,
     cmd_stats::CMD_STATS_COMMAND,
     cmd_status::CMD_STATUS_COMMAND,
+    cmd_addpremium::CMD_ADD_PREMIUM_COMMAND,
     globals::{BotConfig, BotInfo},
 };
 use serenity::{
@@ -28,7 +32,7 @@ pub mod auto_join;
 /// The module for binding the bot to a VC
 pub mod bind;
 /// The module for the `claim_premium` command
-pub mod cmd_claimpremium;
+pub mod cmd_addpremium;
 /// The module for the `credits` command
 pub mod cmd_credits;
 /// The module for error handling of the commands
@@ -45,8 +49,12 @@ pub mod cmd_join;
 pub mod cmd_ping;
 /// The module for the `prefix` command
 pub mod cmd_prefix;
+/// The module for the `rejoin_all` command
+pub mod cmd_rejoinall;
 /// The module for the `setup` command
 pub mod cmd_setup;
+/// The module for the `shutdown` command
+pub mod cmd_shutdown;
 /// The module for the `stats` command
 pub mod cmd_stats;
 /// The module for the `status` command
@@ -69,6 +77,8 @@ pub mod metrics;
 pub mod metrics_counter;
 /// The module for the Prometheus webserver
 pub mod metrics_server;
+/// The module to handle message sending errors
+pub mod msg_handler;
 /// The module for a few useful utilities
 pub mod utils;
 
@@ -99,6 +109,10 @@ struct Voice;
 #[group("Config Commands")]
 #[commands(cmd_setup)]
 struct Config;
+
+#[group("Bot Owner Commands")]
+#[commands(cmd_rejoin_all, cmd_shutdown, cmd_add_premium)]
+struct BotOwner;
 
 /// 1. Sets the colour of the `embed` to `11534368` (The baseline error colour according to Material Design guidelines) if `is_error` is `true`, if not, sets it to the colour in the config
 /// 2. Sends the `embed` to the `channel_id` of `reply`

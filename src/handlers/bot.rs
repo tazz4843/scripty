@@ -80,7 +80,7 @@ impl EventHandler for Handler {
 
             tokio::spawn(async move {
                 loop {
-                    auto_join::auto_join(Arc::clone(&ctx2)).await;
+                    auto_join::auto_join(Arc::clone(&ctx2), false).await;
                     tokio::time::sleep(Duration::from_secs(300)).await;
                 }
             });

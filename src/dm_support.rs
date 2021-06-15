@@ -1,15 +1,16 @@
+#![allow(dead_code)]
 use serenity::model::channel::GuildChannel;
 use serenity::model::prelude::{ChannelCategory, ChannelId, Message, UserId, Webhook};
 use serenity::prelude::Context;
+use serenity::utils::Color;
 /// Inspired by https://github.com/DuckHunt-discord/DHV4/blob/master/src/cogs/private_messages_support.py
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
-use serenity::utils::Color;
 
-pub static SUPPORT_OPEN_MESSAGE: &'static str =
+pub static SUPPORT_OPEN_MESSAGE: &str =
     "Welcome to Scripty DM support.\n\
     Messages here are relayed to a select group of volunteers and bot moderators to help you use the bot.\
     For general questions, we also have a support server \
@@ -144,7 +145,6 @@ impl DmSupportInfo {
                     ))
             })
             .await;
-        ()
     }
 
     pub async fn handle_support_response(&self, ctx: &Context, msg: &Message) {
@@ -167,7 +167,13 @@ impl DmSupportInfo {
             }
         }
 
-        let user = match msg.channel_id.name(ctx).await.expect("no channel name?").parse::<u64>() {
+        let user = match msg
+            .channel_id
+            .name(ctx)
+            .await
+            .expect("no channel name?")
+            .parse::<u64>()
+        {
             Ok(id) => UserId(id)
                 .to_user(ctx)
                 .await
@@ -177,21 +183,30 @@ impl DmSupportInfo {
             } // this is expected since the first level handler shouldn't handle this situation
         };
 
-
         let content = msg.content_safe(ctx).await;
-        if let Err(e) = user.direct_message(ctx, |m| {
-            m.embed(|e| {
-                e.author(|a| {
-                    a.icon_url(msg.author.face())
-                        .name(format!("{}#{}", msg.author.name, msg.author.discriminator))
-                }).color(Color::BLITZ_BLUE)
+        if let Err(e) = user
+            .direct_message(ctx, |m| {
+                m.embed(|e| {
+                    e.author(|a| {
+                        a.icon_url(msg.author.face())
+                            .name(format!("{}#{}", msg.author.name, msg.author.discriminator))
+                    })
+                    .color(Color::BLITZ_BLUE)
                     .description(content)
+                })
             })
-        }).await {
-            msg.channel_id.send_message(ctx, |m| {
-                m.content(format!("can't send message to this user for some reason: {}\n\
-                consider closing the DM", e))
-            }).await.expect("couldn't send messages in the channel, is discord broken?");
+            .await
+        {
+            msg.channel_id
+                .send_message(ctx, |m| {
+                    m.content(format!(
+                        "can't send message to this user for some reason: {}\n\
+                consider closing the DM",
+                        e
+                    ))
+                })
+                .await
+                .expect("couldn't send messages in the channel, is discord broken?");
         };
     }
 }
