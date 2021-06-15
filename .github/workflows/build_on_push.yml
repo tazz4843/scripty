@@ -1,0 +1,51 @@
+name: Build on Push
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      SQLX_OFFLINE: true # just in case DATABASE_URI is set
+
+    steps:
+      - name: "checkout"
+        uses: "actions/checkout@v1"
+
+      - name: "install latest toolchain"
+        uses: "actions-rs/toolchain@v1"
+        with:
+          toolchain: "nightly"
+          default: true
+          override: true
+
+      - name: "get libdeepspeech"
+        run: "mkdir -p ds/cpu ds/cuda && cd ds/cpu && curl -L 'https://github.com/mozilla/DeepSpeech/releases/download/v0.9.3/native_client.amd64.cpu.linux.tar.xz' | tar xJ && cd ../gpu && curl -L 'https://github.com/mozilla/DeepSpeech/releases/download/v0.9.3/native_client.amd64.cuda.linux.tar.xz' | tar xJ && cd ../.."
+
+      - name: "build CPU-only binary"
+        run: "cargo clean && cargo build --release && cp target/release/scripty scripty_cpu"
+        env:
+          LD_LIBRARY_PATH: "./ds/cpu/"
+          LIBRARY_PATH: "./ds/cpu/"
+
+      - name: "Upload CPU Artifact"
+        uses: "actions/upload-artifact@v2"
+        with:
+          name: "scripty_cpu_binary"
+          path: "target/release/scripty"
+
+      - name: "build CUDA binary"
+        run: "cargo clean && cargo build --release && cp target/release/scripty scripty_gpu"
+        env:
+          LD_LIBRARY_PATH: "./ds/gpu/"
+          LIBRARY_PATH: "./ds/gpu/"
+
+
+      - name: "Upload GPU Artifact"
+        uses: "actions/upload-artifact@v2"
+        with:
+          name: "scripty_gpu_binary"
+          path: "target/release/scripty"
+
+
