@@ -13,12 +13,17 @@ jobs:
     name: Check
     runs-on: ubuntu-latest
     steps:
+      - name: "install ld"
+        run: "sudo apt install lld -y"
+
       - uses: actions/checkout@v2
+
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
+
       - uses: actions-rs/cargo@v1
         with:
           command: check
@@ -28,12 +33,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
+
       - run: rustup component add rustfmt
+
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
@@ -43,12 +51,17 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
+      - name: "install ld"
+        run: "sudo apt install lld -y"
+
       - uses: actions/checkout@v2
+
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           components: clippy
           override: true
+
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
