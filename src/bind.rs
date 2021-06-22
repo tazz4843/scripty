@@ -1,5 +1,9 @@
 use crate::{globals::PgPoolKey, handlers::audio::Receiver};
-use serenity::{http::CacheHttp, model::prelude::{Channel, ChannelType, ChannelId, GuildId}, prelude::Context};
+use serenity::{
+    http::CacheHttp,
+    model::prelude::{Channel, ChannelId, ChannelType, GuildId},
+    prelude::Context,
+};
 use songbird::CoreEvent;
 use sqlx::query;
 use std::{convert::TryInto, hint::unreachable_unchecked, sync::Arc};

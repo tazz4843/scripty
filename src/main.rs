@@ -2,7 +2,7 @@ use scripty::{
     cmd_error,
     cmd_help::CMD_HELP,
     cmd_prefix::prefix_check,
-    globals::{set_db, BotConfig, BotInfo, CmdInfo, PgPoolKey, METRICS, ReqwestClient},
+    globals::{set_db, BotConfig, BotInfo, CmdInfo, PgPoolKey, ReqwestClient, METRICS},
     handlers::{bot::Handler, raw::RawHandler},
     metrics::Metrics,
     metrics_server, set_dir,
@@ -84,7 +84,9 @@ async fn main() {
     let client_init_start = SystemTime::now();
     info!("Initializing client...");
 
-    let http_client = reqwest::Client::builder().build().expect("failed to construct http client");
+    let http_client = reqwest::Client::builder()
+        .build()
+        .expect("failed to construct http client");
 
     // Here, we need to configure Songbird to decode all incoming voice packets.
     // If you want, you can do this on a per-call basis---here, we need it to

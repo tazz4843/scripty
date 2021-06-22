@@ -1,13 +1,13 @@
+use crate::{
+    globals::{BotConfig, BotInfo, VERSION},
+    log, send_embed,
+};
 use serenity::{
     builder::CreateEmbed,
     client::Context,
     framework::standard::{macros::command, CommandResult},
     model::prelude::Message,
     prelude::Mentionable,
-};
-use crate::{
-    globals::{BotConfig, BotInfo, VERSION},
-    log, send_embed,
 };
 
 /// The `info` command to give info about feedback, owner, invite, GitHub etc.

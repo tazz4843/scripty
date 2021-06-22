@@ -1,4 +1,8 @@
-use serenity::{builder::CreateMessage, model::prelude::{Mentionable, Message}, prelude::Context};
+use serenity::{
+    builder::CreateMessage,
+    model::prelude::{Mentionable, Message},
+    prelude::Context,
+};
 
 pub async fn handle_message<'a, F>(ctx: &Context, msg: &Message, f: F) -> Option<Message>
 where

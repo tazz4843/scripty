@@ -3,7 +3,7 @@ use serenity::{
     builder::CreateEmbed,
     client::Context,
     framework::standard::{macros::command, Args, CommandResult},
-    model::prelude::{Message, ChannelId},
+    model::prelude::{ChannelId, Message},
     prelude::Mentionable,
 };
 use tracing::error;

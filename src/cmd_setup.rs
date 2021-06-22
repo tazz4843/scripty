@@ -3,7 +3,7 @@ use serenity::{
     client::Context,
     collector::CollectReply,
     framework::standard::{macros::command, CommandResult},
-    model::prelude::{ChannelId, Channel, ChannelType, Message},
+    model::prelude::{Channel, ChannelId, ChannelType, Message},
     prelude::Mentionable,
 };
 use sqlx::query;

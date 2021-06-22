@@ -6,6 +6,7 @@
 use crate::{
     cmd_addpremium::CMD_ADD_PREMIUM_COMMAND,
     cmd_credits::CMD_CREDITS_COMMAND,
+    cmd_donate::CMD_DONATE_COMMAND,
     cmd_info::CMD_INFO_COMMAND,
     cmd_join::CMD_JOIN_COMMAND,
     cmd_ping::CMD_PING_COMMAND,
@@ -15,7 +16,6 @@ use crate::{
     cmd_shutdown::CMD_SHUTDOWN_COMMAND,
     cmd_stats::CMD_STATS_COMMAND,
     cmd_status::CMD_STATUS_COMMAND,
-    cmd_donate::CMD_DONATE_COMMAND,
     globals::{BotConfig, BotInfo},
 };
 use serenity::{
@@ -34,6 +34,8 @@ pub mod bind;
 pub mod cmd_addpremium;
 /// The module for the `credits` command
 pub mod cmd_credits;
+/// The module for the donate command
+pub mod cmd_donate;
 /// The module for error handling of the commands
 pub mod cmd_error;
 /// The module for the `get_key` command
@@ -80,8 +82,6 @@ pub mod metrics_server;
 pub mod msg_handler;
 /// The module for a few useful utilities
 pub mod utils;
-/// The module for the donate command
-pub mod cmd_donate;
 
 /// The hidden group for all the commands to be added to
 /// - ONLY add your own groups to `sub_groups`

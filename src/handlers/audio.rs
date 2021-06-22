@@ -1,4 +1,9 @@
-use crate::{decoder::Decoder, deepspeech::{run_stt, load_model, Model}, utils::DECODE_TYPE, metrics::Metrics};
+use crate::{
+    decoder::Decoder,
+    deepspeech::{load_model, run_stt, Model},
+    metrics::Metrics,
+    utils::DECODE_TYPE,
+};
 use serenity::{
     async_trait,
     model::webhook::Webhook,
@@ -14,8 +19,8 @@ use songbird::{
 };
 use std::{
     collections::{BTreeSet, HashMap},
+    hint::unreachable_unchecked,
     sync::Arc,
-    hint::unreachable_unchecked
 };
 use tokio::task;
 #[allow(unused_imports)]

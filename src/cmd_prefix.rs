@@ -1,3 +1,7 @@
+use crate::{
+    globals::{CmdInfo, PgPoolKey},
+    log, send_embed,
+};
 use serenity::{
     builder::CreateEmbed,
     client::Context,
@@ -5,10 +9,6 @@ use serenity::{
     model::prelude::Message,
 };
 use sqlx::query;
-use crate::{
-    globals::{CmdInfo, PgPoolKey},
-    log, send_embed,
-};
 
 /// The `prefix` command to set the prefix
 /// 1. Gets the database from `ctx.data` using `SqlitePoolKey`

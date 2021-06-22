@@ -25,7 +25,7 @@ pub async fn auto_join(ctx: Arc<Context>, force: bool) {
                             .await
                             .unwrap_or_else(|| unsafe {
                                 unreachable_unchecked() // SAFETY: this should absolutely never happen if Songbird is registered at client init.
-                                                              // if it isn't registered, UB would result anyways
+                                                        // if it isn't registered, UB would result anyways
                             })
                             .get::<u64>(guild_id as u64)
                             .is_some();

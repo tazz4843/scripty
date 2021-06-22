@@ -1,10 +1,20 @@
 #![allow(dead_code)]
+use crate::globals::ReqwestClient;
 /// Inspired by https://github.com/DuckHunt-discord/DHV4/blob/master/src/cogs/private_messages_support.py
-use serenity::{http::AttachmentType, model::prelude::{ChannelCategory, ChannelId, Message, UserId, Webhook, GuildChannel}, prelude::Context, utils::Color};
-use std::{str::FromStr, sync::Arc, borrow::Cow, collections::{HashMap, HashSet}};
+use serenity::{
+    http::AttachmentType,
+    model::prelude::{ChannelCategory, ChannelId, GuildChannel, Message, UserId, Webhook},
+    prelude::Context,
+    utils::Color,
+};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+    str::FromStr,
+    sync::Arc,
+};
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
-use crate::globals::ReqwestClient;
 
 pub static SUPPORT_OPEN_MESSAGE: &str =
     "Welcome to Scripty DM support.\n\
@@ -181,7 +191,9 @@ impl DmSupportInfo {
 
         let files = {
             let data = ctx.data.read().await;
-            let client = data.get::<ReqwestClient>().expect("expected reqwest client");
+            let client = data
+                .get::<ReqwestClient>()
+                .expect("expected reqwest client");
 
             let mut files = vec![];
             for f in &msg.attachments {
@@ -191,7 +203,7 @@ impl DmSupportInfo {
                             Ok(data) => {
                                 files.push(AttachmentType::Bytes {
                                     data: Cow::Owned(data.to_vec()),
-                                    filename: f.filename.clone()
+                                    filename: f.filename.clone(),
                                 });
                             }
                             Err(e) => {

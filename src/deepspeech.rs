@@ -2,14 +2,17 @@ use crate::globals::BotConfig;
 use dasp_interpolate::linear::Linear;
 use dasp_signal::{from_iter, interpolate::Converter, Signal};
 use deepspeech::{errors::DeepspeechError, Model as DsModel};
-use std::{path::Path, sync::{Arc, RwLock}};
+use std::{
+    path::Path,
+    sync::{Arc, RwLock},
+};
 
 // The model has been trained on this specific
 // sample rate.
 pub const SAMPLE_RATE: u32 = 16_000;
 
 pub struct Model {
-    ds_model: DsModel
+    ds_model: DsModel,
 }
 
 unsafe impl Send for Model {}
@@ -17,7 +20,9 @@ unsafe impl Sync for Model {}
 
 impl Model {
     pub fn load_from_files(model_path: &Path) -> Self {
-        Self { ds_model: DsModel::load_from_files(model_path).expect("failed to load model") }
+        Self {
+            ds_model: DsModel::load_from_files(model_path).expect("failed to load model"),
+        }
     }
 
     pub fn speech_to_text(&mut self, buffer: &[i16]) -> Result<String, DeepspeechError> {
@@ -62,13 +67,16 @@ pub fn load_model() -> Model {
     m
 }
 
-pub async fn run_stt(input_data: Vec<i16>, m: Arc<RwLock<Model>>) -> Result<String, DeepspeechError> {
+pub async fn run_stt(
+    input_data: Vec<i16>,
+    m: Arc<RwLock<Model>>,
+) -> Result<String, DeepspeechError> {
     // Run the speech to text algorithm
     tokio::task::spawn_blocking(move || {
         let input_data = {
             // div 4 here is because we ignore two of the chunks and sum the remaining two and div by two
             // which results in 3 of them being essentially ignored
-            let mut result = Vec::with_capacity(input_data.len()/4_usize);
+            let mut result = Vec::with_capacity(input_data.len() / 4_usize);
 
             // there's other things we could use but this is a const so should be faster
             let (_, chunks) = input_data.as_rchunks::<4>();
@@ -100,7 +108,9 @@ pub async fn run_stt(input_data: Vec<i16>, m: Arc<RwLock<Model>>) -> Result<Stri
         let audio_buf: Vec<_> = conv.until_exhausted().map(|v| v[0]).collect();
 
         // Run the speech to text algorithm
-        let mut model = m.write().expect("a thread panicked while trying to load the model");
+        let mut model = m
+            .write()
+            .expect("a thread panicked while trying to load the model");
         model.speech_to_text(&audio_buf)
     })
     .await

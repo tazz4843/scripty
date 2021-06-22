@@ -1,4 +1,4 @@
-use crate::{utils::ShardManagerWrapper, msg_handler::handle_message};
+use crate::{msg_handler::handle_message, utils::ShardManagerWrapper};
 use serenity::{
     client::Context,
     framework::standard::{macros::command, CommandResult},

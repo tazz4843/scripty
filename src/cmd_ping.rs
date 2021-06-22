@@ -1,12 +1,12 @@
+use crate::{
+    log, send_embed,
+    utils::{get_avg_ws_latency, ContextTypes},
+};
 use serenity::{
     builder::CreateEmbed,
     client::Context,
     framework::standard::{macros::command, CommandResult},
     model::prelude::Message,
-};
-use crate::{
-    log, send_embed,
-    utils::{get_avg_ws_latency, ContextTypes},
 };
 
 #[command("ping")]

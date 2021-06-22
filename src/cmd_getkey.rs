@@ -1,4 +1,4 @@
-use crate::{send_embed, globals::PgPoolKey};
+use crate::{globals::PgPoolKey, send_embed};
 use serenity::{
     builder::CreateEmbed,
     client::Context,

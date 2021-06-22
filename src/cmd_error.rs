@@ -1,11 +1,11 @@
+use crate::send_embed;
 use serenity::{
     builder::CreateEmbed,
     client::Context,
     framework::standard::{macros::hook, DispatchError, Reason},
-    model::prelude::{Message, ChannelId},
+    model::prelude::{ChannelId, Message},
     utils::Color,
 };
-use crate::send_embed;
 use std::fmt::Debug;
 
 /// The function to run on a user-related command error. Informs the user unless its them being

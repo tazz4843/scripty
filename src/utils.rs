@@ -2,7 +2,7 @@ use crate::globals::PgPoolKey;
 use rand::Rng;
 use serenity::{
     client::bridge::gateway::{ShardManager, ShardRunnerMessage},
-    model::prelude::{ChannelId, MessageId, OnlineStatus, Activity},
+    model::prelude::{Activity, ChannelId, MessageId, OnlineStatus},
     prelude::{Context, TypeMapKey},
 };
 use songbird::driver::DecodeMode;
