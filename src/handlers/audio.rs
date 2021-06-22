@@ -21,6 +21,7 @@ use std::{
 use tokio::task;
 #[allow(unused_imports)]
 use tracing::{debug, error, info, trace, warn};
+use crate::deepspeech::{load_model, Model};
 
 fn do_check(
     user_id: &UserId,
@@ -41,7 +42,14 @@ pub struct Receiver {
     context: Arc<Context>,
     premium_level: u8,
     max_users: u32, // seriously if it hits 65535 users in a VC wtf
+    ds_model: Arc<std::sync::RwLock<Model>>,
 }
+
+// next two both forcibly implement the required types for async code
+// we need these because `deepspeech::Model` doesn't impl Send + Sync
+// because it's got a FFI type inside of it
+unsafe impl Send for Receiver {}
+unsafe impl Sync for Receiver {}
 
 impl Receiver {
     pub async fn new(webhook: Webhook, context: Arc<Context>, premium_level: u8) -> Self {
@@ -67,6 +75,7 @@ impl Receiver {
         let webhook = Arc::new(webhook);
         let active_users = Arc::new(RwLock::new(BTreeSet::new()));
         let next_users = Arc::new(RwLock::new(BTreeSet::new()));
+        let ds_model = Arc::new(std::sync::RwLock::new(load_model()));
         Self {
             ssrc_map,
             audio_buffer,
@@ -78,6 +87,7 @@ impl Receiver {
             context,
             premium_level,
             max_users,
+            ds_model,
         }
     }
 }
@@ -215,9 +225,10 @@ impl VoiceEventHandler for Receiver {
 
                     let webhook = Arc::clone(&self.webhook);
                     let context = Arc::clone(&self.context);
+                    let model = Arc::clone(&self.ds_model);
 
                     task::spawn(async move {
-                        match run_stt(audio).await {
+                        match run_stt(audio, model).await {
                             Ok(r) => {
                                 if !r.is_empty() {
                                     let profile_picture = match u.avatar {
