@@ -1,7 +1,5 @@
-#![feature(async_closure)] // audio.rs
-#![feature(in_band_lifetimes)] // audio.rs
-#![feature(map_first_last)]
-#![feature(slice_as_chunks)] // audio.rs
+#![feature(map_first_last)] // audio.rs:390:56
+#![feature(slice_as_chunks)] // deepspeech.rs:70:42
 #![deny(unused_must_use)] // because i suck at `.await`ing futures
 #![deny(unused_imports)] // so as not to pollute compiling output
 
@@ -17,6 +15,7 @@ use crate::{
     cmd_shutdown::CMD_SHUTDOWN_COMMAND,
     cmd_stats::CMD_STATS_COMMAND,
     cmd_status::CMD_STATUS_COMMAND,
+    cmd_donate::CMD_DONATE_COMMAND,
     globals::{BotConfig, BotInfo},
 };
 use serenity::{
@@ -81,6 +80,8 @@ pub mod metrics_server;
 pub mod msg_handler;
 /// The module for a few useful utilities
 pub mod utils;
+/// The module for the donate command
+pub mod cmd_donate;
 
 /// The hidden group for all the commands to be added to
 /// - ONLY add your own groups to `sub_groups`
@@ -95,7 +96,7 @@ struct Master;
 /// - You should add your own custom commands to different groups, then they'll use `.` too
 /// - Make sure your groups only have commands NOT sub groups! The only group that can have sub groups is `Master`!
 #[group("General Stuff")]
-#[commands(cmd_info, cmd_prefix)]
+#[commands(cmd_info, cmd_prefix, cmd_donate)]
 struct General;
 
 #[group("Bot Utils")]

@@ -25,6 +25,7 @@ use std::{
 };
 use tokio::sync::RwLock;
 use tracing::{error, info, instrument, subscriber::set_global_default};
+use scripty::globals::ReqwestClient;
 
 /// You should add your own requirements to get the bot started here
 /// 1. Sets every global
@@ -83,6 +84,9 @@ async fn main() {
 
     let client_init_start = SystemTime::now();
     info!("Initializing client...");
+
+    let http_client = reqwest::Client::builder().build().expect("failed to construct http client");
+
     // Here, we need to configure Songbird to decode all incoming voice packets.
     // If you want, you can do this on a per-call basis---here, we need it to
     // read the audio data that other people are sending us!
@@ -145,6 +149,7 @@ async fn main() {
         .raw_event_handler(RawHandler)
         .type_map_insert::<PgPoolKey>(db)
         .type_map_insert::<Metrics>(Arc::clone(&metrics))
+        .type_map_insert::<ReqwestClient>(http_client)
         .framework(framework)
         .register_songbird_with(songbird)
         .await

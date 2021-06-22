@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+use serenity::http::AttachmentType;
 use serenity::model::channel::GuildChannel;
 use serenity::model::prelude::{ChannelCategory, ChannelId, Message, UserId, Webhook};
 use serenity::prelude::Context;
@@ -9,6 +10,8 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
+use crate::globals::ReqwestClient;
+use std::borrow::Cow;
 
 pub static SUPPORT_OPEN_MESSAGE: &str =
     "Welcome to Scripty DM support.\n\
@@ -183,6 +186,35 @@ impl DmSupportInfo {
             } // this is expected since the first level handler shouldn't handle this situation
         };
 
+        let files = {
+            let data = ctx.data.read().await;
+            let client = data.get::<ReqwestClient>().expect("expected reqwest client");
+
+            let mut files = vec![];
+            for f in &msg.attachments {
+                match client.get(&f.url).send().await {
+                    Ok(r) => {
+                        match r.bytes().await {
+                            Ok(data) => {
+                                files.push(AttachmentType::Bytes {
+                                    data: Cow::Owned(data.to_vec()),
+                                    filename: f.filename.clone()
+                                });
+                            }
+                            Err(e) => {
+                                warn!("failed to get attachment data {}", e);
+                            }
+                        };
+                    }
+                    Err(e) => {
+                        warn!("failed to download attachment {}", e);
+                    }
+                };
+            }
+
+            files
+        };
+
         let content = msg.content_safe(ctx).await;
         if let Err(e) = user
             .direct_message(ctx, |m| {
@@ -194,6 +226,7 @@ impl DmSupportInfo {
                     .color(Color::BLITZ_BLUE)
                     .description(content)
                 })
+                .add_files(files)
             })
             .await
         {

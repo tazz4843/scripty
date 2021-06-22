@@ -405,3 +405,8 @@ impl CmdInfo {
 
 pub static START_TIME: OnceCell<chrono::DateTime<Utc>> = OnceCell::new();
 pub static METRICS: OnceCell<Arc<Metrics>> = OnceCell::new();
+
+pub struct ReqwestClient;
+impl TypeMapKey for ReqwestClient {
+    type Value = reqwest::Client;
+}

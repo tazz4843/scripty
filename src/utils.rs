@@ -64,7 +64,7 @@ pub async fn do_stats_update(ctx: Arc<Context>) {
     let shard_info = get_avg_ws_latency(ContextTypes::WithArc(&ctx)).await;
 
     ctx.cache.set_max_messages(0_usize).await;
-    let status_channel = ChannelId(791426352217587732);
+    let status_channel = ChannelId(791426352217587733);
     match status_channel
         .messages(&ctx.http, |r| r.after(MessageId(0_u64)).limit(25))
         .await
