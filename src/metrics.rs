@@ -1,7 +1,6 @@
 /// Code used from sushiibot
 /// https://raw.githubusercontent.com/sushiibot/sushii-2/888fbcdaecc0838e5c3735a5aac677a2d327ef10/src/model/metrics.rs
-use chrono::naive::NaiveDateTime;
-use chrono::offset::Utc;
+use chrono::{naive::NaiveDateTime, offset::Utc};
 use prometheus::{IntCounter, IntCounterVec, IntGauge, Opts, Registry};
 use prometheus_static_metric::make_static_metric;
 use serde::{Deserialize, Serialize};

@@ -2,10 +2,9 @@ use serenity::{
     builder::CreateEmbed,
     client::Context,
     framework::standard::{macros::command, Args, CommandResult},
-    model::channel::Message,
+    model::prelude::Message,
 };
 use sqlx::query;
-
 use crate::{
     globals::{CmdInfo, PgPoolKey},
     log, send_embed,

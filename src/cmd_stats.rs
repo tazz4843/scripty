@@ -1,10 +1,9 @@
-use crate::globals::START_TIME;
-use crate::metrics::Metrics;
+use crate::{globals::START_TIME, metrics::Metrics};
 use chrono::Utc;
 use serenity::{
     client::Context,
     framework::standard::{macros::command, CommandResult},
-    model::channel::Message,
+    model::prelude::Message,
 };
 use std::hint::unreachable_unchecked;
 

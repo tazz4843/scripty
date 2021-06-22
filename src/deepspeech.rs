@@ -2,9 +2,7 @@ use crate::globals::BotConfig;
 use dasp_interpolate::linear::Linear;
 use dasp_signal::{from_iter, interpolate::Converter, Signal};
 use deepspeech::{errors::DeepspeechError, Model as DsModel};
-use std::path::Path;
-use std::sync::Arc;
-use std::sync::RwLock;
+use std::{path::Path, sync::{Arc, RwLock}};
 
 // The model has been trained on this specific
 // sample rate.

@@ -1,11 +1,6 @@
-use crate::bind;
-use crate::globals::PgPoolKey;
-use serenity::futures::TryStreamExt;
-use serenity::model::id::ChannelId;
-use serenity::prelude::Context;
-use std::convert::TryInto;
-use std::hint;
-use std::sync::Arc;
+use crate::{bind, globals::PgPoolKey};
+use serenity::{futures::TryStreamExt, model::id::ChannelId, prelude::Context};
+use std::{convert::TryInto, hint::unreachable_unchecked, sync::Arc};
 use tracing::{debug, warn};
 
 /// Automatically joins all voice chats the bot can see in its DB.
@@ -14,7 +9,7 @@ use tracing::{debug, warn};
 pub async fn auto_join(ctx: Arc<Context>, force: bool) {
     let data = ctx.data.read().await;
     let pool = data.get::<PgPoolKey>().unwrap_or_else(|| unsafe {
-        hint::unreachable_unchecked()
+        unreachable_unchecked()
         // SAFETY: this should absolutely never happen if the DB pool is placed
         // in at initialization. if that were to happen, undefined behavior would result anyways
     });
@@ -29,7 +24,7 @@ pub async fn auto_join(ctx: Arc<Context>, force: bool) {
                         let already_connected = songbird::get(&ctx)
                             .await
                             .unwrap_or_else(|| unsafe {
-                                hint::unreachable_unchecked() // SAFETY: this should absolutely never happen if Songbird is registered at client init.
+                                unreachable_unchecked() // SAFETY: this should absolutely never happen if Songbird is registered at client init.
                                                               // if it isn't registered, UB would result anyways
                             })
                             .get::<u64>(guild_id as u64)

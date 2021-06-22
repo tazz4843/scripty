@@ -2,13 +2,11 @@ use serenity::{
     builder::CreateEmbed,
     client::Context,
     framework::standard::{macros::command, CommandResult},
-    model::channel::Message,
+    model::prelude::Message,
     prelude::Mentionable,
 };
-
-use crate::globals::VERSION;
 use crate::{
-    globals::{BotConfig, BotInfo},
+    globals::{BotConfig, BotInfo, VERSION},
     log, send_embed,
 };
 

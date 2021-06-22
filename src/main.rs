@@ -2,7 +2,7 @@ use scripty::{
     cmd_error,
     cmd_help::CMD_HELP,
     cmd_prefix::prefix_check,
-    globals::{set_db, BotConfig, BotInfo, CmdInfo, PgPoolKey, METRICS},
+    globals::{set_db, BotConfig, BotInfo, CmdInfo, PgPoolKey, METRICS, ReqwestClient},
     handlers::{bot::Handler, raw::RawHandler},
     metrics::Metrics,
     metrics_server, set_dir,
@@ -25,7 +25,6 @@ use std::{
 };
 use tokio::sync::RwLock;
 use tracing::{error, info, instrument, subscriber::set_global_default};
-use scripty::globals::ReqwestClient;
 
 /// You should add your own requirements to get the bot started here
 /// 1. Sets every global

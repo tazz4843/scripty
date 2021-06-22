@@ -1,9 +1,8 @@
-use crate::msg_handler::handle_message;
-use crate::utils::ShardManagerWrapper;
+use crate::{utils::ShardManagerWrapper, msg_handler::handle_message};
 use serenity::{
     client::Context,
     framework::standard::{macros::command, CommandResult},
-    model::channel::Message,
+    model::prelude::Message,
 };
 use std::hint::unreachable_unchecked;
 

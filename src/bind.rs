@@ -1,14 +1,8 @@
-use crate::globals::PgPoolKey;
-use crate::handlers::audio::Receiver;
-use serenity::http::CacheHttp;
-use serenity::model::channel::{Channel, ChannelType};
-use serenity::model::id::{ChannelId, GuildId};
-use serenity::prelude::Context;
+use crate::{globals::PgPoolKey, handlers::audio::Receiver};
+use serenity::{http::CacheHttp, model::prelude::{Channel, ChannelType, ChannelId, GuildId}, prelude::Context};
 use songbird::CoreEvent;
 use sqlx::query;
-use std::convert::TryInto;
-use std::hint::unreachable_unchecked;
-use std::sync::Arc;
+use std::{convert::TryInto, hint::unreachable_unchecked, sync::Arc};
 
 pub async fn bind(
     ctx: &Context,

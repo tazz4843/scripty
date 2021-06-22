@@ -1,17 +1,10 @@
 #![allow(dead_code)]
-use serenity::http::AttachmentType;
-use serenity::model::channel::GuildChannel;
-use serenity::model::prelude::{ChannelCategory, ChannelId, Message, UserId, Webhook};
-use serenity::prelude::Context;
-use serenity::utils::Color;
 /// Inspired by https://github.com/DuckHunt-discord/DHV4/blob/master/src/cogs/private_messages_support.py
-use std::collections::{HashMap, HashSet};
-use std::str::FromStr;
-use std::sync::Arc;
+use serenity::{http::AttachmentType, model::prelude::{ChannelCategory, ChannelId, Message, UserId, Webhook, GuildChannel}, prelude::Context, utils::Color};
+use std::{str::FromStr, sync::Arc, borrow::Cow, collections::{HashMap, HashSet}};
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 use crate::globals::ReqwestClient;
-use std::borrow::Cow;
 
 pub static SUPPORT_OPEN_MESSAGE: &str =
     "Welcome to Scripty DM support.\n\

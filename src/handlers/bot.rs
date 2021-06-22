@@ -1,5 +1,4 @@
-use crate::globals::START_TIME;
-use crate::{auto_join, globals::BotConfig, metrics_counter, utils};
+use crate::{auto_join, globals::{BotConfig, START_TIME}, metrics_counter, utils};
 use serenity::{
     async_trait,
     client::{Context, EventHandler},

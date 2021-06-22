@@ -1,9 +1,7 @@
-use crate::globals::PgPoolKey;
-use crate::msg_handler::handle_message;
-use serenity::framework::standard::Args;
+use crate::{globals::PgPoolKey, msg_handler::handle_message};
 use serenity::{
     client::Context,
-    framework::standard::{macros::command, CommandResult},
+    framework::standard::{macros::command, CommandResult, Args},
     model::channel::Message,
 };
 use sqlx::query;

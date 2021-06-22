@@ -3,7 +3,7 @@ use serenity::{
     builder::CreateEmbed,
     client::Context,
     framework::standard::{macros::command, CommandResult},
-    model::channel::Message,
+    model::prelude::Message,
 };
 
 #[command("template")]

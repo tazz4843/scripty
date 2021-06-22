@@ -1,18 +1,13 @@
 use crate::globals::PgPoolKey;
 use rand::Rng;
-use serenity::client::bridge::gateway::ShardRunnerMessage;
-use serenity::model::gateway::Activity;
-use serenity::model::prelude::OnlineStatus;
 use serenity::{
-    client::bridge::gateway::ShardManager,
-    model::id::{ChannelId, MessageId},
+    client::bridge::gateway::{ShardManager, ShardRunnerMessage},
+    model::prelude::{ChannelId, MessageId, OnlineStatus, Activity},
     prelude::{Context, TypeMapKey},
 };
 use songbird::driver::DecodeMode;
 use sqlx::query;
-use std::hint::unreachable_unchecked;
-use std::sync::Arc;
-use std::time::SystemTime;
+use std::{hint::unreachable_unchecked, sync::Arc, time::SystemTime};
 use tokio::sync::RwLock;
 use tracing::error;
 

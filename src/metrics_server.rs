@@ -1,9 +1,8 @@
 use crate::globals::METRICS;
 use prometheus::{Encoder, TextEncoder};
-use rocket::tokio::sync::oneshot::Receiver;
+use tokio::sync::oneshot::{self, Receiver};
 use rocket::Shutdown;
 use std::hint::unreachable_unchecked;
-use tokio::sync::oneshot;
 /*
 use rocket::http::Status;
 use rocket::outcome::Outcome;

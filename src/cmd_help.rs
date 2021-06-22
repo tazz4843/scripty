@@ -3,7 +3,7 @@ use serenity::{
     framework::standard::{
         help_commands, macros::help, Args, CommandGroup, CommandResult, HelpOptions,
     },
-    model::{channel::Message, id::UserId},
+    model::prelude::{Message, UserId},
 };
 use std::collections::HashSet;
 use tracing::trace;

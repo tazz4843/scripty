@@ -1,7 +1,7 @@
 use serenity::{
     client::Context,
     framework::standard::{macros::command, CommandResult},
-    model::channel::Message,
+    model::prelude::Message,
 };
 use systemstat::Platform;
 

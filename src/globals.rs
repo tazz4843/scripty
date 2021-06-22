@@ -5,8 +5,7 @@ use once_cell::sync::OnceCell;
 use serde::Deserialize;
 use serenity::{http::client::Http, model::id::UserId, prelude::TypeMapKey};
 use sqlx::{postgres::PgConnectOptions, query, PgPool, Pool, Postgres};
-use std::sync::Arc;
-use std::{convert::TryFrom, fs, io, path::Path};
+use std::{convert::TryFrom, fs, io, path::Path, sync::Arc};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

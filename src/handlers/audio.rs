@@ -1,5 +1,4 @@
-use crate::metrics::Metrics;
-use crate::{decoder::Decoder, deepspeech::run_stt, utils::DECODE_TYPE};
+use crate::{decoder::Decoder, deepspeech::{run_stt, load_model, Model}, utils::DECODE_TYPE, metrics::Metrics};
 use serenity::{
     async_trait,
     model::webhook::Webhook,
@@ -13,15 +12,14 @@ use songbird::{
     },
     Event, EventContext, EventHandler as VoiceEventHandler,
 };
-use std::hint::unreachable_unchecked;
 use std::{
     collections::{BTreeSet, HashMap},
     sync::Arc,
+    hint::unreachable_unchecked
 };
 use tokio::task;
 #[allow(unused_imports)]
 use tracing::{debug, error, info, trace, warn};
-use crate::deepspeech::{load_model, Model};
 
 fn do_check(
     user_id: &UserId,
