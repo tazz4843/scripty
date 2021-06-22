@@ -2,7 +2,6 @@ use crate::globals::BotConfig;
 use dasp_interpolate::linear::Linear;
 use dasp_signal::{from_iter, interpolate::Converter, Signal};
 use deepspeech::{errors::DeepspeechError, Model};
-use std::hint::unreachable_unchecked;
 use std::path::Path;
 
 // The model has been trained on this specific
@@ -42,41 +41,26 @@ pub async fn run_stt(input_data: Vec<i16>) -> Result<String, DeepspeechError> {
             m.enable_external_scorer(&scorer).unwrap();
         }
 
-        /*
-        let mut reader = match Reader::new(input_data) {
-            Ok(v) => v,
-            Err(e) => panic!("failed to create reader: {:?}", e)
-        };
-        let desc = reader.description();
-
-        // Obtain the buffer of samples
-        let audio_buf: Vec<_> = if desc.sample_rate() == SAMPLE_RATE {
-            reader.samples().map(|s| s.unwrap()).collect()
-        } else {
-            // We need to interpolate to the target sample rate
-            let interpolator = Linear::new([0i16], [0]);
-            let conv = Converter::from_hz_to_hz(
-                from_iter(reader.samples::<i16>().map(|s| [s.unwrap()])),
-                interpolator,
-                desc.sample_rate() as f64,
-                SAMPLE_RATE as f64,
-            );
-            conv.until_exhausted().map(|v| v[0]).collect()
-        };
-        */
-
         let input_data = {
-            let mut result = Vec::new();
+            // div 4 here is because we ignore two of the chunks and sum the remaining two and div by two
+            // which results in 3 of them being essentially ignored
+            let mut result = Vec::with_capacity(input_data.len()/4_usize);
+
+            // there's other things we could use but this is a const so should be faster
             let (_, chunks) = input_data.as_rchunks::<4>();
+
+            // the reason for the unsafe code here is because this is in the hot path and will
+            // (probably) be called very often, so we want it to be fast, and we know some things
+            // for sure so we can use unsafe with those things we know
             for chunk in chunks {
-                let left = chunk
-                    .get(0)
-                    .unwrap_or_else(|| unsafe { unreachable_unchecked() })
-                    .clone();
-                let right = chunk
-                    .get(1)
-                    .unwrap_or_else(|| unsafe { unreachable_unchecked() })
-                    .clone();
+                let left = unsafe {
+                    // SAFETY: the chunk size is determined by a constant value and will always be == 4
+                    chunk.get_unchecked(0)
+                };
+                let right = unsafe {
+                    // SAFETY: see above
+                    chunk.get_unchecked(1)
+                };
                 result.push((left + right) / 2_i16);
             }
             result
