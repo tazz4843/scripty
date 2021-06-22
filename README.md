@@ -31,6 +31,7 @@ and `LIBRARY_PATH` environment variables.
 ```bash
 LIBRARY_PATH="/path/to/libdeepspeech/" RUSTFLAGS="-Ctarget-cpu=native" cargo build --release
 ```
+Precompiled binaries can be found at GitHub Actions. **IT IS STRONGLY RECOMMENDED TO BUILD THE BOT YOURSELF TO TAKE ADVANTAGE OF NATIVE CPU FEATURES!**
 
 ### It doesn't work on Windows!
 Yeah I know. Windows support is not planned, nor will any PRs for it be accepted.
