@@ -51,6 +51,7 @@ async fn cmd_prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             embed
                 .title("Something weird happened and I let you use this command in DMs")
                 .description("We have to be in a guild to set the prefix for a guild, no?");
+            return Ok(());
         }
     };
 
