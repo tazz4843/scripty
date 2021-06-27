@@ -41,6 +41,7 @@ pub struct Receiver {
     premium_level: u8,
     max_users: u16, // seriously if it hits 65535 users in a VC wtf
     ds_model: Arc<std::sync::RwLock<Model>>,
+    verbose: bool,
 }
 
 // next two both forcibly implement the required types for async code
@@ -50,7 +51,7 @@ unsafe impl Send for Receiver {}
 unsafe impl Sync for Receiver {}
 
 impl Receiver {
-    pub async fn new(webhook: Webhook, context: Arc<Context>, premium_level: u8) -> Self {
+    pub async fn new(webhook: Webhook, context: Arc<Context>, premium_level: u8, verbose: bool) -> Self {
         let max_users = match premium_level {
             0 => 10,
             1 => 25,
@@ -82,6 +83,7 @@ impl Receiver {
             premium_level,
             max_users,
             ds_model,
+            verbose,
         }
     }
 }

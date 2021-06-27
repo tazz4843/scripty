@@ -107,7 +107,7 @@ pub async fn bind(
 
             let ctx1 = Arc::new(ctx.clone());
 
-            let receiver = Receiver::new(webhook, ctx1, premium_level).await;
+            let receiver = Receiver::new(webhook, ctx1, premium_level, false).await;
 
             let _ = handler.mute(true).await;
 
