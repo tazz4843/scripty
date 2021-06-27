@@ -95,7 +95,7 @@ impl VoiceEventHandler for Receiver {
         debug!("act event for guild {:#?}", self.webhook.guild_id);
 
         match ctx {
-            Ctx::SpeakingStateUpdate(Speaking {
+            EventContext::SpeakingStateUpdate(Speaking {
                 speaking,
                 ssrc,
                 user_id,
@@ -122,7 +122,7 @@ impl VoiceEventHandler for Receiver {
                     audio_buf.insert(*ssrc, Vec::new());
                 }
             }
-            Ctx::SpeakingUpdate { ssrc, speaking } => {
+            EventContext::SpeakingUpdate { ssrc, speaking } => {
                 let uid: u64 = {
                     let map = self.ssrc_map.read().await;
                     match map.get(ssrc) {
@@ -198,7 +198,7 @@ impl VoiceEventHandler for Receiver {
                     if *speaking { "started" } else { "stopped" },
                 );
             }
-            Ctx::VoicePacket {
+            EventContext::VoicePacket {
                 audio,
                 packet,
                 payload_offset,
@@ -237,7 +237,7 @@ impl VoiceEventHandler for Receiver {
                     b.extend(audio);
                 }
             }
-            Ctx::ClientConnect(ClientConnect {
+            EventContext::ClientConnect(ClientConnect {
                 audio_ssrc,
                 video_ssrc,
                 user_id,
@@ -261,7 +261,7 @@ impl VoiceEventHandler for Receiver {
                     user_id, audio_ssrc, video_ssrc,
                 );
             }
-            Ctx::ClientDisconnect(ClientDisconnect { user_id, .. }) => {
+            EventContext::ClientDisconnect(ClientDisconnect { user_id, .. }) => {
                 if let Some(u) = {
                     let map = self.ssrc_map.read().await;
                     let mut id: Option<u32> = None;
