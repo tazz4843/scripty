@@ -52,7 +52,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
     let mut m = match handle_message(&ctx, &msg, |f| {
         f.content("By using Scripty you agree to the privacy policy, found here: https://scripty.imaskeleton.me/privacy_policy . \
     Type `ok` within 5 minutes to continue.")
-    })
+    }).await
     {
         Some(m) => m,
         None => return Ok(()),
