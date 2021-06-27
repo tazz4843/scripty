@@ -93,7 +93,6 @@ impl VoiceEventHandler for Receiver {
     //noinspection SpellCheckingInspection
     #[allow(unused_variables)]
     async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
-        use songbird::EventContext as Ctx;
         debug!("act event for guild {:#?}", self.webhook.guild_id);
 
         match ctx {
