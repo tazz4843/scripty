@@ -159,13 +159,7 @@ impl VoiceEventHandler for Receiver {
                         match run_stt(audio, model).await {
                             Ok(r) => {
                                 if !r.is_empty() {
-                                    let profile_picture = match u.avatar {
-                                        Some(a) => format!(
-                                            "https://cdn.discordapp.com/avatars/{}/{}.png",
-                                            u.id, a
-                                        ),
-                                        None => u.default_avatar_url(),
-                                    };
+                                    let profile_picture = u.face();
                                     let name = u.name;
 
                                     let _ = webhook
