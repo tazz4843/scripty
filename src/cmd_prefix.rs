@@ -55,12 +55,11 @@ async fn cmd_prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         }
     };
 
-    if let Some(guild_id) = guild_id {
-        if prefix.chars().count() > 10 {
-            embed
-                .title("Your prefix can't be longer than 10 characters")
-                .description("Why would you want it that long anyway..");
-        } else if let Err(err) = query!(
+    if prefix.chars().count() > 10 {
+        embed
+            .title("Your prefix can't be longer than 10 characters")
+            .description("Why would you want it that long anyway..");
+    } else if let Err(err) = query!(
             "INSERT INTO prefixes
                  (guild_id, prefix)
              VALUES
@@ -74,19 +73,18 @@ async fn cmd_prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         )
         .execute(db)
         .await
-        {
-            log(ctx, format!("Couldn't insert to prefixes: {}", err)).await;
-            embed
-                .title("Ugh, I couldn't write that down..")
-                .description("I just let my developer know, until then you could just try again");
+    {
+        log(ctx, format!("Couldn't insert to prefixes: {}", err)).await;
+        embed
+            .title("Ugh, I couldn't write that down..")
+            .description("I just let my developer know, until then you could just try again");
+    } else {
+        is_error = false;
+        embed.description(if !prefix.is_empty() {
+            format!("Voila! My prefix here is now `{}`", prefix)
         } else {
-            is_error = false;
-            embed.description(if !prefix.is_empty() {
-                format!("Voila! My prefix here is now `{}`", prefix)
-            } else {
-                "Yay! I don't even need a prefix here anymore".to_string()
-            });
-        }
+            "Yay! I don't even need a prefix here anymore".to_string()
+        });
     }
 
     send_embed(ctx, msg, is_error, embed).await;
