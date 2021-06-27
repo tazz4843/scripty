@@ -51,7 +51,12 @@ unsafe impl Send for Receiver {}
 unsafe impl Sync for Receiver {}
 
 impl Receiver {
-    pub async fn new(webhook: Webhook, context: Arc<Context>, premium_level: u8, verbose: bool) -> Self {
+    pub async fn new(
+        webhook: Webhook,
+        context: Arc<Context>,
+        premium_level: u8,
+        verbose: bool,
+    ) -> Self {
         let max_users = match premium_level {
             0 => 10,
             1 => 25,
@@ -185,9 +190,9 @@ impl VoiceEventHandler for Receiver {
                 // so we're trying to do stuff with as little overhead as possible
                 {
                     let client_data = self.context.data.read().await;
-                    let metrics = client_data.get::<Metrics>().unwrap_or_else(|| unsafe {
-                        unreachable_unchecked()
-                    });
+                    let metrics = client_data
+                        .get::<Metrics>()
+                        .unwrap_or_else(|| unsafe { unreachable_unchecked() });
                     // 20ms audio packet: if it isn't 20 but rather 30 oh well too bad, it's only 10ms we lose
                     // anything else shouldn't ever happen
                     metrics.ms_transcribed.inc_by(20);

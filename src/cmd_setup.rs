@@ -8,10 +8,10 @@ use serenity::{
 };
 use sqlx::query;
 
+use crate::msg_handler::handle_message;
 use crate::{bind, globals::PgPoolKey, log, send_embed};
 use std::{hint, str::FromStr, sync::Arc};
 use tokio::time::Duration;
-use crate::msg_handler::handle_message;
 
 fn is_number(msg: &Arc<Message>) -> bool {
     u64::from_str(&*msg.content).is_ok()
@@ -60,9 +60,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
     if CollectReply::new(&ctx)
         .author_id(msg.author.id)
         .channel_id(msg.channel_id)
-        .guild_id(
-            unsafe { msg.guild_id.unwrap_unchecked() },
-        )
+        .guild_id(unsafe { msg.guild_id.unwrap_unchecked() })
         .filter(|msg| msg.content.to_lowercase() == "ok")
         .timeout(Duration::from_secs(300))
         .await

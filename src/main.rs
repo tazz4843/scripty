@@ -6,7 +6,7 @@ use scripty::{
     handlers::{bot::Handler, raw::RawHandler},
     metrics::Metrics,
     metrics_server, set_dir,
-    utils::{ShardManagerWrapper},
+    utils::ShardManagerWrapper,
     BOTOWNER_GROUP, CONFIG_GROUP, GENERAL_GROUP, MASTER_GROUP, UTILS_GROUP, VOICE_GROUP,
 };
 use serenity::{
@@ -14,6 +14,7 @@ use serenity::{
     framework::{standard::buckets::LimitedFor, StandardFramework},
     Client,
 };
+use songbird::driver::DecodeMode;
 use songbird::{
     driver::{Config as DriverConfig, CryptoMode},
     SerenityInit, Songbird,
@@ -25,7 +26,6 @@ use std::{
 };
 use tokio::sync::RwLock;
 use tracing::{error, info, instrument, subscriber::set_global_default};
-use songbird::driver::DecodeMode;
 
 /// You should add your own requirements to get the bot started here
 /// 1. Sets every global

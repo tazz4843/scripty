@@ -8,11 +8,7 @@ use tracing::{debug, warn};
 /// `force` decides whether to forcibly rejoin a voice chat. This will result in errors at some point.
 pub async fn auto_join(ctx: Arc<Context>, force: bool) {
     let data = ctx.data.read().await;
-    let pool = unsafe {
-        data
-            .get::<PgPoolKey>()
-            .unwrap_unchecked()
-    };
+    let pool = unsafe { data.get::<PgPoolKey>().unwrap_unchecked() };
     let mut query = sqlx::query!("SELECT * FROM guilds").fetch(pool);
     while let Ok(row) = query.try_next().await {
         match row {
