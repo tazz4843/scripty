@@ -42,9 +42,7 @@ pub async fn bind(
         "SELECT premium_level FROM guilds WHERE guild_id = $1",
         i64::from(guild_id)
     )
-    .fetch_optional(db.unwrap_or_else(|| unsafe {
-        unreachable_unchecked() // SAFETY: we've already made 100% sure the DB pool exists above.
-    }))
+    .fetch_optional(unsafe { db.unwrap_unchecked() })
     .await
     {
         Ok(result) => {
@@ -65,9 +63,7 @@ pub async fn bind(
         "SELECT webhook_token, webhook_id FROM channels WHERE channel_id = $1",
         i64::from(transcription_channel)
     )
-    .fetch_optional(db.unwrap_or_else(|| unsafe {
-        unreachable_unchecked() // SAFETY: we've already made 100% sure the DB pool exists above.
-    }))
+    .fetch_optional(unsafe { db.unwrap_unchecked() })
     .await
     {
         Ok(result) => {

@@ -42,28 +42,19 @@ async fn cmd_prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let mut is_error = true;
 
     let data = ctx.data.read().await;
-    let db = data.get::<PgPoolKey>();
+    let db = unsafe { data.get::<PgPoolKey>().unwrap_unchecked() };
     let prefix = args.rest().trim();
-    let guild_id = msg.guild_id;
-
-    if guild_id.is_none() {
-        log(ctx, "msg.guild_id is None for the prefix command").await;
-        embed
-            .title("Something weird happened and I let you use this command in DMs")
-            .description("We have to be in a guild to set the prefix for a guild, no?");
-    };
-    if db.is_none() {
-        log(
-            ctx,
-            "Couldn't get SqlitePool for the prefix command".to_string(),
-        )
-        .await;
-        embed
-            .title("Now this is super weird and scary")
-            .description("I lost my whole book where I write things down, sorry..");
+    let guild_id = match msg.guild_id {
+        Some(g) => g,
+        None => {
+            log(ctx, "msg.guild_id is None for the prefix command").await;
+            embed
+                .title("Something weird happened and I let you use this command in DMs")
+                .description("We have to be in a guild to set the prefix for a guild, no?");
+        }
     };
 
-    if let (Some(guild_id), Some(db)) = (guild_id, db) {
+    if let Some(guild_id) = guild_id {
         if prefix.chars().count() > 10 {
             embed
                 .title("Your prefix can't be longer than 10 characters")
@@ -135,13 +126,7 @@ pub async fn prefix_check(ctx: &Context, msg: &Message) -> Option<String> {
     }
 
     let data = ctx.data.read().await;
-    let db = match data.get::<PgPoolKey>() {
-        Some(db) => db,
-        None => {
-            log(ctx, "Couldn't get the database for the prefix check").await;
-            return None;
-        }
-    };
+    let db = unsafe { data.get::<PgPoolKey>().unwrap_unchecked() };
 
     match query!(
         "SELECT

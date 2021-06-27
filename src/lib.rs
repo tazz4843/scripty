@@ -1,5 +1,6 @@
 #![feature(map_first_last)] // audio.rs:390:56
-#![feature(slice_as_chunks)] // deepspeech.rs:70:42
+#![feature(slice_as_chunks)]
+#![feature(option_result_unwrap_unchecked)] // deepspeech.rs:70:42
 #![deny(unused_must_use)] // because i suck at `.await`ing futures
 #![deny(unused_imports)] // so as not to pollute compiling output
 

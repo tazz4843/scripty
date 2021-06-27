@@ -16,16 +16,8 @@ use serenity::{
 async fn cmd_ping(ctx: &Context, msg: &Message) -> CommandResult {
     let latency = get_avg_ws_latency(ContextTypes::NoArc(ctx)).await;
     let start = std::time::SystemTime::now();
-    if let Err(why) = msg.channel_id.broadcast_typing(&ctx.http).await {
-        log(ctx, format!("Failed to get latency! {}", why)).await;
-    }
-    let ping_time = match start.elapsed() {
-        Ok(t) => t.as_millis(),
-        Err(e) => {
-            log(ctx, format!("Failed to get ping time! {}", e)).await;
-            return Ok(());
-        }
-    };
+    msg.channel_id.broadcast_typing(&ctx.http).await?;
+    let ping_time = start.elapsed()?.as_millis();
     let mut embed = CreateEmbed::default();
     embed.title("🏓");
     embed.field("WebSocket", format!("{}ms", latency.0), false);
