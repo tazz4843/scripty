@@ -1,5 +1,5 @@
 use crate::{
-    log, send_embed,
+     send_embed,
     utils::{get_avg_ws_latency, ContextTypes},
 };
 use serenity::{

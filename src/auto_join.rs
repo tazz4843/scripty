@@ -1,6 +1,6 @@
 use crate::{bind, globals::PgPoolKey};
 use serenity::{futures::TryStreamExt, model::id::ChannelId, prelude::Context};
-use std::{convert::TryInto, hint::unreachable_unchecked, sync::Arc};
+use std::{convert::TryInto, sync::Arc};
 use tracing::{debug, warn};
 
 /// Automatically joins all voice chats the bot can see in its DB.

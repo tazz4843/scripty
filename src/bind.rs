@@ -6,7 +6,7 @@ use serenity::{
 };
 use songbird::CoreEvent;
 use sqlx::query;
-use std::{convert::TryInto, hint::unreachable_unchecked, sync::Arc};
+use std::{convert::TryInto, sync::Arc};
 
 pub async fn bind(
     ctx: &Context,
