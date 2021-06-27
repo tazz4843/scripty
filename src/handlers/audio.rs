@@ -101,17 +101,6 @@ impl VoiceEventHandler for Receiver {
                 user_id,
                 ..
             }) => {
-                // Discord voice calls use RTP, where every sender uses a randomly allocated
-                // *Synchronisation Source* (SSRC) to allow receivers to tell which audio
-                // stream a received packet belongs to. As this number is not derived from
-                // the sender's user_id, only Discord Voice Gateway messages like this one
-                // inform us about which random SSRC a user has been allocated. Future voice
-                // packets will contain *only* the SSRC.
-                //
-                // You can implement logic here so that you can differentiate users'
-                // SSRCs and map the SSRC to the User ID and maintain this state.
-                // Using this map, you can map the `ssrc` in `voice_packet`
-                // to the user ID and handle their audio packets separately.
                 debug!(
                     "Speaking state update: user {:?} has SSRC {:?}, using {:?}",
                     user_id, ssrc, speaking,
@@ -131,11 +120,9 @@ impl VoiceEventHandler for Receiver {
                     }
                     let mut audio_buf = self.audio_buffer.write().await;
                     audio_buf.insert(*ssrc, Vec::new());
-                } // otherwise just ignore it since we can't do anything about that
+                }
             }
             Ctx::SpeakingUpdate { ssrc, speaking } => {
-                // You can implement logic here which reacts to a user starting
-                // or stopping speaking.
                 let uid: u64 = {
                     let map = self.ssrc_map.read().await;
                     match map.get(ssrc) {
@@ -217,13 +204,9 @@ impl VoiceEventHandler for Receiver {
                 payload_offset,
                 payload_end_pad,
             } => {
-                // An event which fires for every received audio packet,
-                // containing the decoded data.
-
                 {
                     let client_data = self.context.data.read().await;
                     let metrics = client_data.get::<Metrics>().unwrap_or_else(|| unsafe {
-                        // SAFETY: this should never happen if the metrics pool is inserted at client init
                         unreachable_unchecked()
                     });
                     // 20ms audio packet: if it isn't 20 but rather 30 oh well too bad, it's only 10ms we lose
@@ -260,8 +243,6 @@ impl VoiceEventHandler for Receiver {
                 user_id,
                 ..
             }) => {
-                // You can implement your own logic here to handle a user who has joined the
-                // voice channel e.g., allocate structures, map their SSRC to User ID.
                 {
                     let mut map = self.ssrc_map.write().await;
                     map.insert(*audio_ssrc, *user_id);
@@ -281,15 +262,10 @@ impl VoiceEventHandler for Receiver {
                 );
             }
             Ctx::ClientDisconnect(ClientDisconnect { user_id, .. }) => {
-                // You can implement your own logic here to handle a user who has left the
-                // voice channel e.g., finalise processing of statistics etc.
-                // You will typically need to map the User ID to their SSRC; observed when
-                // speaking or connecting.
                 if let Some(u) = {
                     let map = self.ssrc_map.read().await;
                     let mut id: Option<u32> = None;
                     for i in map.iter() {
-                        // walk the map to find the UserId
                         if i.1 == user_id {
                             id = Some(*i.0);
                             break;
