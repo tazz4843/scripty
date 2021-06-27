@@ -182,6 +182,8 @@ impl VoiceEventHandler for Receiver {
                 payload_offset,
                 payload_end_pad,
             } => {
+                // this code needs to be insanely optimized
+                // so we're trying to do stuff with as little overhead as possible
                 {
                     let client_data = self.context.data.read().await;
                     let metrics = client_data.get::<Metrics>().unwrap_or_else(|| unsafe {
