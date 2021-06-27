@@ -11,6 +11,7 @@ use sqlx::query;
 use crate::{bind, globals::PgPoolKey, log, send_embed};
 use std::{hint, str::FromStr, sync::Arc};
 use tokio::time::Duration;
+use crate::msg_handler::handle_message;
 
 fn is_number(msg: &Arc<Message>) -> bool {
     u64::from_str(&*msg.content).is_ok()
@@ -48,37 +49,19 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
     //////////////////////////////////////////////////////
     // make user agree to ToS + Privacy Policy as a CYA //
     //////////////////////////////////////////////////////
-    let mut m = match msg
-        .channel_id
-        .say(
-            &ctx.http,
-            "By using Scripty you agree to the privacy policy, found here: https://scripty.imaskeleton.me/privacy_policy . \
-    Type `ok` within 5 minutes to continue.",
-        )
-        .await
+    let mut m = match handle_message(&ctx, &msg, |f| {
+        f.content("By using Scripty you agree to the privacy policy, found here: https://scripty.imaskeleton.me/privacy_policy . \
+    Type `ok` within 5 minutes to continue.")
+    })
     {
-        Ok(m) => m,
-        Err(e) => {
-            if let Err(e) = msg.author.direct_message(&ctx.http, |c| {
-                c.content(
-                    format!(
-                        "I failed to send a message in {}! Make sure I have permissions to send messages. {}",
-                        msg.channel_id.mention(),
-                        e
-                    )
-                )
-            }).await {
-                log(ctx, format!("Failed to DM user! {:?}", e)).await;
-            };
-            return Ok(());
-        }
+        Some(m) => m,
+        None => return Ok(()),
     };
     if CollectReply::new(&ctx)
         .author_id(msg.author.id)
         .channel_id(msg.channel_id)
         .guild_id(
-            msg.guild_id
-                .expect("Somehow still ended up in DMs for setup command!"),
+            unsafe { msg.guild_id.unwrap_unchecked() },
         )
         .filter(|msg| msg.content.to_lowercase() == "ok")
         .timeout(Duration::from_secs(300))

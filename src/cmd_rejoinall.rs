@@ -20,8 +20,7 @@ async fn cmd_rejoin_all(ctx: &Context, msg: &Message) -> CommandResult {
     };
     let _typing = msg
         .channel_id
-        .start_typing(ctx.as_ref())
-        .expect("failed to start typing");
+        .start_typing(ctx.as_ref())?;
     auto_join::auto_join(Arc::new(ctx.clone()), true).await;
     let _ = msg1
         .edit(ctx, |m| m.content("Reconnected to all voice chats."))
