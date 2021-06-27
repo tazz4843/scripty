@@ -63,8 +63,6 @@ pub mod cmd_stats;
 pub mod cmd_status;
 /// The module for the command template
 pub mod cmd_template;
-/// The module for a subclass of the Opus decoder that supports Send + Sync
-pub mod decoder;
 /// The module for DeepSpeech utils.
 pub mod deepspeech;
 /// The module for direct message support
