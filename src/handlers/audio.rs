@@ -39,7 +39,7 @@ pub struct Receiver {
     webhook: Arc<Webhook>,
     context: Arc<Context>,
     premium_level: u8,
-    max_users: u32, // seriously if it hits 65535 users in a VC wtf
+    max_users: u16, // seriously if it hits 65535 users in a VC wtf
     ds_model: Arc<std::sync::RwLock<Model>>,
 }
 
@@ -57,7 +57,7 @@ impl Receiver {
             2 => 50,
             3 => 100,
             4 => 250,
-            _ => u32::MAX,
+            _ => u16::MAX,
         };
 
         if let Some(id) = webhook.guild_id {
