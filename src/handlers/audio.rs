@@ -101,22 +101,14 @@ impl VoiceEventHandler for Receiver {
                 user_id,
                 ..
             }) => {
-                debug!(
-                    "Speaking state update: user {:?} has SSRC {:?}, using {:?}",
-                    user_id, ssrc, speaking,
-                );
-
                 if let Some(user_id) = user_id {
                     if !do_check(&user_id, &self.active_users.read().await) {
-                        trace!("user failed the checks");
                         return None;
                     }
 
                     {
-                        trace!("locking SSRC map...");
                         let mut map = self.ssrc_map.write().await;
                         map.insert(*ssrc, *user_id);
-                        trace!("dropping SSRC map...");
                     }
                     let mut audio_buf = self.audio_buffer.write().await;
                     audio_buf.insert(*ssrc, Vec::new());
@@ -140,10 +132,6 @@ impl VoiceEventHandler for Receiver {
                         match buf.insert(*ssrc, Vec::new()) {
                             Some(a) => a,
                             None => {
-                                warn!(
-                                    "Didn't find a user with SSRC {} in the audio buffers.",
-                                    ssrc
-                                );
                                 return None;
                             }
                         }
@@ -191,12 +179,6 @@ impl VoiceEventHandler for Receiver {
                         };
                     });
                 }
-                trace!(
-                    "Source {} (ID {}) has {} speaking.",
-                    ssrc,
-                    uid,
-                    if *speaking { "started" } else { "stopped" },
-                );
             }
             EventContext::VoicePacket {
                 audio,
@@ -256,10 +238,6 @@ impl VoiceEventHandler for Receiver {
                         active_users.insert(*user_id);
                     };
                 }
-                debug!(
-                    "Client connected: user {:?} has audio SSRC {:?}, video SSRC {:?}",
-                    user_id, audio_ssrc, video_ssrc,
-                );
             }
             EventContext::ClientDisconnect(ClientDisconnect { user_id, .. }) => {
                 if let Some(u) = {
@@ -290,8 +268,6 @@ impl VoiceEventHandler for Receiver {
                         };
                     }
                 };
-
-                debug!("Client disconnected: user {:?}", user_id);
             }
             _ => {}
         }
