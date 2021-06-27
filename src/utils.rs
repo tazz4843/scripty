@@ -5,13 +5,10 @@ use serenity::{
     model::prelude::{Activity, ChannelId, MessageId, OnlineStatus},
     prelude::{Context, TypeMapKey},
 };
-use songbird::driver::DecodeMode;
 use sqlx::query;
 use std::{hint::unreachable_unchecked, sync::Arc, time::SystemTime};
 use tokio::sync::RwLock;
 use tracing::error;
-
-pub static DECODE_TYPE: DecodeMode = DecodeMode::Decode;
 
 pub enum ContextTypes<'a> {
     NoArc(&'a Context),
