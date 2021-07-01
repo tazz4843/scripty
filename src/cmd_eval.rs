@@ -51,14 +51,11 @@ async fn cmd_eval(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     embed.field("Output", output.0, false);
     embed.field(
         "Duration",
-        format!(
-            "{}ns",
-            if let Some(o) = output.2 {
-                o
-            } else {
-                compile_time
-            }
-        ),
+        if let Some(o) = output.2 {
+            format!("{}ns runtime, {}ns compile time", o, compile_time)
+        } else {
+            format!("{}ns compile time", compile_time)
+        },
         false,
     );
 
