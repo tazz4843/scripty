@@ -35,7 +35,8 @@ rand = "0.8"
 eval = "0.4"
 
 [dependencies.serenity]
-version = "0.10"
+git = "https://github.com/serenity-rs/serenity"
+branch = "current"
 features = ["client", "standard_framework", "voice", "rustls_backend", "framework", "cache", "collector"]
 
 [dependencies.tokio]
@@ -49,3 +50,6 @@ features = ["derive"]
 [dependencies.sqlx]
 version = "0.5"
 features = ["runtime-tokio-rustls", "postgres", "offline"]
+
+[patch.crates-io]
+serenity = { git = "https://github.com/serenity-rs/serenity", branch = "current" }
