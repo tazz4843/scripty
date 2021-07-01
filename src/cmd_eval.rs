@@ -1,4 +1,4 @@
-use crate::send_embed;
+use crate::{send_embed, globals::PgPoolKey};
 use eval::Expr;
 use serenity::{
     builder::CreateEmbed,
@@ -7,6 +7,7 @@ use serenity::{
     model::prelude::Message,
 };
 use std::time::SystemTime;
+use tokio::runtime::Handle;
 
 #[command("eval")]
 #[owners_only]
@@ -19,11 +20,39 @@ async fn cmd_eval(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     embed.field("Input", format!("```\n{}\n```", &input), false);
 
     let (compile_time, output) = {
-        let st = SystemTime::now();
+        let data = ctx.data.read().await;
+        let db = unsafe { data.get::<PgPoolKey>().unwrap_unchecked().clone() };
+        let runtime = Handle::current();
+
         let expr = Expr::new(input)
             // .value("_ctx", ctx.clone()) // uncommenting results in
             // E0277: the trait bound `serenity::prelude::Context: Serialize` is not satisfied
-            .value("_msg", msg.clone());
+            .value("_msg", msg.clone())
+            .function("sql", move |args| {
+                let query = match args.get(0) {
+                    Some(v) => match v.as_str() {
+                        Some(s) => s,
+                        None => {
+                            return Err(eval::Error::Custom(
+                                "failed to convert query to string".to_string(),
+                            ))
+                        }
+                    },
+                    None => {
+                        return Err(eval::Error::Custom(
+                            "missing argument to DB query".to_string(),
+                        ))
+                    }
+                };
+                match runtime.block_on(sqlx::query(query).execute(&db)) {
+                    Ok(v) => Ok(format!("query success: {:?}", v).parse().unwrap()),
+                    Err(e) => Err(eval::Error::Custom(format!(
+                        "error while running query: {:?}",
+                        e
+                    ))),
+                }
+            });
+        let st = SystemTime::now();
         let compiled = expr.compile();
         let compile_time = st.elapsed().expect("system clock rolled back").as_nanos();
         let output = match compiled {
