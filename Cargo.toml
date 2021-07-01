@@ -32,6 +32,7 @@ prometheus-static-metric = "0.5"
 hyper = { version = "0.14", features = ["server"] }
 rocket = { git = "https://github.com/SergioBenitez/Rocket", rev = "f1ecb79" }
 rand = "0.8"
+eval = "0.4"
 
 [dependencies.serenity]
 version = "0.10"

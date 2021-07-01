@@ -8,6 +8,7 @@ use crate::{
     cmd_addpremium::CMD_ADD_PREMIUM_COMMAND,
     cmd_credits::CMD_CREDITS_COMMAND,
     cmd_donate::CMD_DONATE_COMMAND,
+    cmd_eval::CMD_EVAL_COMMAND,
     cmd_info::CMD_INFO_COMMAND,
     cmd_join::CMD_JOIN_COMMAND,
     cmd_ping::CMD_PING_COMMAND,
@@ -39,6 +40,8 @@ pub mod cmd_credits;
 pub mod cmd_donate;
 /// The module for error handling of the commands
 pub mod cmd_error;
+/// The module for the eval command
+pub mod cmd_eval;
 /// The module for the `get_key` command
 pub mod cmd_getkey;
 /// The module for the `help` command
@@ -111,7 +114,7 @@ struct Voice;
 struct Config;
 
 #[group("Bot Owner Commands")]
-#[commands(cmd_rejoin_all, cmd_shutdown, cmd_add_premium)]
+#[commands(cmd_rejoin_all, cmd_shutdown, cmd_add_premium, cmd_eval)]
 struct BotOwner;
 
 /// 1. Sets the colour of the `embed` to `11534368` (The baseline error colour according to Material Design guidelines) if `is_error` is `true`, if not, sets it to the colour in the config
