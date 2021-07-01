@@ -8,9 +8,8 @@ use serenity::{
 };
 use std::time::SystemTime;
 
-#[command("template")]
-#[aliases("tmp")]
-#[bucket = "general"]
+#[command("eval")]
+#[owners_only]
 #[description = "Evaluate some code.\n\
 `_ctx`, and `_msg` are available in the context.\n\
 Code is evaluated with the eval crate: https://docs.rs/eval/0.4.3/eval/"]
