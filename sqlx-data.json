@@ -92,6 +92,44 @@
       ]
     }
   },
+  "3a0ed3d5114665f722684b14aa961b6f38f76ba8b7979c1592663709bb10565b": {
+    "query": "SELECT * FROM guilds WHERE guild_id = $1",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "guild_id",
+          "type_info": "Int8"
+        },
+        {
+          "ordinal": 1,
+          "name": "default_bind",
+          "type_info": "Int8"
+        },
+        {
+          "ordinal": 2,
+          "name": "output_channel",
+          "type_info": "Int8"
+        },
+        {
+          "ordinal": 3,
+          "name": "premium_level",
+          "type_info": "Int2"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      },
+      "nullable": [
+        false,
+        true,
+        true,
+        false
+      ]
+    }
+  },
   "480dd2f3cdecafcb3d5bad094483c1530f5798a23e3e679d5e98a14b4d76c217": {
     "query": "CREATE TABLE IF NOT EXISTS api_keys (\n           api_key TEXT NOT NULL,\n           user_id BIGINT\n         )",
     "describe": {
