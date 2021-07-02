@@ -3,6 +3,7 @@ name = "scripty"
 version = "1.2.0"
 authors = ["0/0 <beerights@protonmail.com>"]
 edition = "2018"
+license = "EUPL-1.2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
