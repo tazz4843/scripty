@@ -3,6 +3,7 @@ use crate::{
     globals::{BotConfig, START_TIME},
     metrics_counter, utils,
 };
+use serenity::model::prelude::{Interaction, InteractionData, InteractionResponseType};
 use serenity::{
     async_trait,
     client::{Context, EventHandler},
@@ -102,5 +103,31 @@ impl EventHandler for Handler {
                 }
             });
         }
+    }
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        let _ = interaction
+            .create_interaction_response(&ctx, |r| {
+                r.kind(InteractionResponseType::DeferredUpdateMessage)
+            })
+            .await;
+        let data = match interaction.data {
+            Some(d) => d,
+            None => return,
+        };
+        match data {
+            InteractionData::ApplicationCommand(_) => {}
+            InteractionData::MessageComponent(data) => match data.custom_id.as_str() {
+                "tos_agree" => {
+                    let _ = interaction
+                        .message
+                        .expect("no message supplied")
+                        .regular()
+                        .expect("not a regular message")
+                        .delete(&ctx)
+                        .await;
+                }
+                _ => {}
+            },
+        };
     }
 }

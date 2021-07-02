@@ -1,21 +1,18 @@
 use serenity::{
     builder::CreateEmbed,
     client::Context,
-    collector::CollectReply,
     framework::standard::{macros::command, CommandResult},
     model::prelude::{Channel, ChannelId, ChannelType, Message},
-    prelude::Mentionable,
 };
 use sqlx::query;
 
 use crate::msg_handler::handle_message;
 use crate::{bind, globals::PgPoolKey, log, send_embed};
-use std::{hint, str::FromStr, sync::Arc};
+use serenity::builder::CreateSelectMenuOption;
+use serenity::collector::CollectComponentInteraction;
+use serenity::model::prelude::{ButtonStyle, InteractionData, UserId};
+use std::hint;
 use tokio::time::Duration;
-
-fn is_number(msg: &Arc<Message>) -> bool {
-    u64::from_str(&*msg.content).is_ok()
-}
 
 #[command("setup")]
 #[aliases("start", "init", "initialize")]
@@ -50,18 +47,37 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
     // make user agree to ToS + Privacy Policy as a CYA //
     //////////////////////////////////////////////////////
     let mut m = match handle_message(&ctx, &msg, |f| {
-        f.content("By using Scripty you agree to the privacy policy, found here: https://scripty.imaskeleton.me/privacy_policy . \
+        f
+            .content("By using Scripty you agree to the privacy policy, found here: https://scripty.imaskeleton.me/privacy_policy . \
     Type `ok` within 5 minutes to continue.")
+            .components(|c| {
+                c.create_action_row(|r| {
+                    r.create_button(|b| {
+                        b.style(ButtonStyle::Primary)
+                            .custom_id("tos_agree")
+                            .label("I Agree")
+                    })
+                })
+            })
     }).await
     {
         Some(m) => m,
         None => return Ok(()),
     };
-    if CollectReply::new(&ctx)
+    if CollectComponentInteraction::new(&ctx)
         .author_id(msg.author.id)
         .channel_id(msg.channel_id)
         .guild_id(unsafe { msg.guild_id.unwrap_unchecked() })
-        .filter(|msg| msg.content.to_lowercase() == "ok")
+        .filter(|action| {
+            let data = match action.data {
+                Some(ref d) => d,
+                None => return false,
+            };
+            match data {
+                InteractionData::ApplicationCommand(_) => false,
+                InteractionData::MessageComponent(data) => data.custom_id.as_str() == "tos_agree",
+            }
+        })
         .timeout(Duration::from_secs(300))
         .await
         .is_none()
@@ -76,88 +92,267 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
     /////////////////////////////////////////
     // get the voice chat ID from the user //
     /////////////////////////////////////////
-    let mut m = match msg.channel_id.say(&ctx.http, "Paste the ID of the voice chat you want me to transcript messages from.\n\
-    If you don't know how to get the ID, see this picture: https://cdn.discordapp.com/attachments/697540103136084011/816353842823561306/copy_id.png").await {
-        Ok(m) => m,
-        Err(e) => {
-            if let Err(e) = msg.author.direct_message(&ctx.http, |c| {
-                c.content(format!("I failed to send a message in {}! Make sure I have permissions to send messages. {}", msg.channel_id.mention(), e))
-            }).await {
-                log(ctx, format!("Failed to DM user! {:?}", e)).await;
-            };
-            return Ok(());
+    let mut channel_ids = vec![];
+    for c in guild_id
+        .channels(&ctx)
+        .await
+        .expect("failed to fetch guild channels")
+        .iter()
+    {
+        match c.1.kind {
+            ChannelType::Text | ChannelType::News => {}
+            _ => continue,
+        };
+        if let Ok(perms) =
+            c.1.permissions_for_user(&ctx, UserId(ctx.http.application_id))
+                .await
+        {
+            if !perms.manage_webhooks() {
+                continue;
+            }
+        } else {
+            continue;
         }
+
+        let mut name = c.1.name.clone();
+        name.truncate(25);
+        let mut opt = CreateSelectMenuOption::default();
+        opt.label(name.clone()).value(c.0 .0);
+        channel_ids.push(opt);
+    }
+
+    let mut m = match handle_message(&ctx, &msg, |m| {
+        m.content("Select the channel you want me to send the results of transcriptions to from the dropdowns below.\n\
+        **NOTE**: this only includes channels where i have the Manage Webhooks permission. \
+        If the channel you want doesn't show up, give me the Manage Webhooks permission there and try rerunning setup.")
+            .components(|c| {
+                let (rest, sets) = channel_ids.as_rchunks::<25>();
+                let mut i = 0;
+                for set in sets {
+                    c.create_action_row(|r| {
+                        r.create_select_menu(|b| {
+                            b.custom_id(format!("result_id_picker_{}", i))
+                                .options(|o| {
+                                    o.set_options(set.to_vec())
+                                })
+                        })
+                    });
+                    i += 1;
+                    if i > 5 {break;}
+                }
+                if i < 5 {
+                    c.create_action_row(|r| {
+                        r.create_select_menu(|b| {
+                            b.custom_id("result_id_picker_overflow")
+                                .options(|o| {
+                                    o.set_options(rest.to_vec())
+                                })
+                        })
+                    });
+                }
+                c
+            })
+    }).await {
+        Some(m) => m,
+        None => return Ok(()),
     };
 
-    let voice_id = match CollectReply::new(&ctx)
+    let result_id: u64 = match CollectComponentInteraction::new(&ctx)
         .author_id(msg.author.id)
         .channel_id(msg.channel_id)
-        .guild_id(
-            msg.guild_id
-                .unwrap_or_else(|| unsafe { hint::unreachable_unchecked() }),
-        )
-        .filter(is_number)
-        .timeout(Duration::from_secs(120))
+        .guild_id(unsafe { msg.guild_id.unwrap_unchecked() })
+        .message_id(m.id)
+        .collect_limit(1)
+        .timeout(Duration::from_secs(60))
         .await
     {
-        Some(m) => {
-            let content = m.content.clone();
-            u64::from_str(&*content).expect("Somehow got a invalid ID.")
-        }
+        Some(i) => match i.data {
+            Some(ref d) => {
+                if let InteractionData::MessageComponent(comp) = d {
+                    match comp.values.get(0) {
+                        Some(v) => match v.parse() {
+                            Ok(v) => v,
+                            Err(e) => {
+                                let _ = m
+                                    .edit(&ctx, |m| {
+                                        m.content("Discord had a issue and sent us the wrong ID. Try again.")
+                                            .components(|c| c)
+                                    })
+                                    .await;
+                                return Ok(());
+                            }
+                        },
+                        None => {
+                            let _ = m
+                                .edit(&ctx, |m| {
+                                    m.content("Discord had a issue and didn't send us enough IDs. Try again.")
+                                        .components(|c| c)
+                                })
+                                .await;
+                            return Ok(());
+                        }
+                    }
+                } else {
+                    let _ = m
+                        .edit(&ctx, |m| {
+                            m.content("Discord had a issue and sent us the wrong type of data. Try again.")
+                                .components(|c| c)
+                        })
+                        .await;
+                    return Ok(());
+                }
+            }
+            None => {
+                let _ = m
+                    .edit(&ctx, |m| {
+                        m.content("Discord had a issue and didn't send us any data. Try again.")
+                            .components(|c| c)
+                    })
+                    .await;
+                return Ok(());
+            }
+        },
         None => {
             let _ = m
-                .edit(&ctx, |m| m.content("Timed out. Rerun setup to try again."))
+                .edit(&ctx, |m| {
+                    m.content("Timed out. Rerun setup to try again.")
+                        .components(|c| c)
+                })
                 .await;
             return Ok(());
         }
     };
+
     drop(m);
 
     ////////////////////////////////////////////////////////
     // get the transcription result channel from the user //
     ////////////////////////////////////////////////////////
-    let mut m = match msg
-        .channel_id
-        .say(
-            &ctx.http,
-            "Now paste the ID of the channel you want me to send the results of transcriptions to.",
-        )
+    let mut channel_ids = vec![];
+    for c in guild_id
+        .channels(&ctx)
         .await
+        .expect("failed to fetch guild channels")
+        .iter()
     {
-        Ok(m) => m,
-        Err(e) => {
-            if let Err(e) = msg
-                .author
-                .direct_message(&ctx.http, |c| {
-                    c.content(format!(
-                        "I failed to send a message in {}! Make sure I have permissions to send messages. {}",
-                        msg.channel_id.mention(),
-                        e
-                    ))
-                })
+        match c.1.kind {
+            ChannelType::Voice | ChannelType::Stage => {}
+            _ => continue,
+        };
+        if let Ok(perms) =
+            c.1.permissions_for_user(&ctx, UserId(ctx.http.application_id))
                 .await
-            {
-                log(ctx, format!("Failed to DM user! {:?}", e)).await;
-            };
-            return Ok(());
+        {
+            if !perms.connect() {
+                continue;
+            }
+        } else {
+            continue;
         }
+
+        let mut name = c.1.name.clone();
+        name.truncate(25);
+        let mut opt = CreateSelectMenuOption::default();
+        opt.label(name.clone()).value(c.0 .0);
+        channel_ids.push(opt);
+    }
+
+    let mut m = match handle_message(&ctx, &msg, |m| {
+        m.content("Select the voice chat you would like me to join and transcript from from the dropdowns below.\n\
+        **NOTE**: you can temporarily change this at any time by dragging me to another VC, or permanently by rerunning setup.")
+            .components(|c| {
+                let (rest, sets) = channel_ids.as_rchunks::<25>();
+                let mut i = 0;
+                for set in sets {
+                    c.create_action_row(|r| {
+                        r.create_select_menu(|b| {
+                            b.custom_id(format!("result_id_picker_{}", i))
+                                .options(|o| {
+                                    o.set_options(set.to_vec())
+                                })
+                        })
+                    });
+                    i += 1;
+                    if i > 5 {break;}
+                }
+                if i < 5 {
+                    c.create_action_row(|r| {
+                        r.create_select_menu(|b| {
+                            b.custom_id("result_id_picker_overflow")
+                                .options(|o| {
+                                    o.set_options(rest.to_vec())
+                                })
+                        })
+                    });
+                }
+                c
+            })
+    }).await {
+        Some(m) => m,
+        None => return Ok(()),
     };
 
-    let result_id = match CollectReply::new(&ctx)
+    let voice_id: u64 = match CollectComponentInteraction::new(&ctx)
         .author_id(msg.author.id)
         .channel_id(msg.channel_id)
-        .guild_id(msg.guild_id.expect("Shouldn't be in DMs!"))
-        .filter(is_number)
-        .timeout(Duration::from_secs(120))
+        .guild_id(unsafe { msg.guild_id.unwrap_unchecked() })
+        .message_id(m.id)
+        .collect_limit(1)
+        .timeout(Duration::from_secs(60))
         .await
     {
-        Some(m) => {
-            let content = m.content.clone();
-            u64::from_str(&*content).expect("Somehow got a invalid ID.")
-        }
+        Some(i) => match i.data {
+            Some(ref d) => {
+                if let InteractionData::MessageComponent(comp) = d {
+                    match comp.values.get(0) {
+                        Some(v) => match v.parse() {
+                            Ok(v) => v,
+                            Err(e) => {
+                                let _ = m
+                                    .edit(&ctx, |m| {
+                                        m.content("Discord had a issue and sent us the wrong ID. Try again.")
+                                            .components(|c| c)
+                                    })
+                                    .await;
+                                return Ok(());
+                            }
+                        },
+                        None => {
+                            let _ = m
+                                .edit(&ctx, |m| {
+                                    m.content("Discord had a issue and didn't send us enough IDs. Try again.")
+                                        .components(|c| c)
+                                })
+                                .await;
+                            return Ok(());
+                        }
+                    }
+                } else {
+                    let _ = m
+                        .edit(&ctx, |m| {
+                            m.content("Discord had a issue and sent us the wrong type of data. Try again.")
+                                .components(|c| c)
+                        })
+                        .await;
+                    return Ok(());
+                }
+            }
+            None => {
+                let _ = m
+                    .edit(&ctx, |m| {
+                        m.content("Discord had a issue and didn't send us any data. Try again.")
+                            .components(|c| c)
+                    })
+                    .await;
+                return Ok(());
+            }
+        },
         None => {
             let _ = m
-                .edit(&ctx, |m| m.content("Timed out. Rerun setup to try again."))
+                .edit(&ctx, |m| {
+                    m.content("Timed out. Rerun setup to try again.")
+                        .components(|c| c)
+                })
                 .await;
             return Ok(());
         }
@@ -168,50 +363,16 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
     // now verify those IDs //
     //////////////////////////
 
-    let vc_id = ChannelId::from(voice_id);
     let final_id = ChannelId::from(result_id);
 
-    match match vc_id.to_channel_cached(&ctx).await {
-        Some(c) => c,
-        None => match vc_id.to_channel(&ctx).await {
-            Ok(c) => c,
-            Err(e) => {
-                msg.channel_id
-                    .say(&ctx, format!("I can't convert that to a channel. {:?}", e))
-                    .await?;
-                return Ok(());
-            }
-        },
-    } {
-        Channel::Guild(c) => match c.kind {
-            ChannelType::Voice => {}
-            ChannelType::Stage => {}
-            _ => {
-                msg.channel_id
-                    .say(&ctx, "This isn't a voice channel! Try again.")
-                    .await?;
-                return Ok(());
-            }
-        },
-        _ => {
+    let (id, token) = match match final_id.to_channel(&ctx).await {
+        Ok(c) => c,
+        Err(e) => {
             msg.channel_id
-                .say(&ctx, "This isn't a guild channel! Try again.")
+                .say(&ctx, format!("I can't convert that to a channel. {:?}", e))
                 .await?;
             return Ok(());
         }
-    }
-
-    let (id, token) = match match final_id.to_channel_cached(&ctx).await {
-        Some(c) => c,
-        None => match final_id.to_channel(&ctx).await {
-            Ok(c) => c,
-            Err(e) => {
-                msg.channel_id
-                    .say(&ctx, format!("I can't convert that to a channel. {:?}", e))
-                    .await?;
-                return Ok(());
-            }
-        },
     } {
         Channel::Guild(c) => match c.kind {
             ChannelType::Text | ChannelType::News => {
@@ -225,7 +386,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                         {
                             Ok(r) => {
                                 if let Some(m) = r {
-                                    let _ = m.delete(&ctx).await; // we don't care if deleting failed
+                                    let _ = w.delete_message(&ctx, m.id).await; // we don't care if deleting failed
                                 }
                             }
                             Err(e) => {
@@ -248,7 +409,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                                         .say(
                                             &ctx,
                                             "Discord never sent the bot a token for the \
-                                            webhook. This should never happen. Try running the command again.",
+                                            webhook. This should never happen. Try restarting setup.",
                                         )
                                         .await?;
                                 return Ok(());
@@ -268,14 +429,20 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
             }
             _ => {
                 msg.channel_id
-                    .say(&ctx, "This isn't a text channel! Try again.")
+                    .say(
+                        &ctx,
+                        "Something weird happened in my code... try restarting setup?",
+                    )
                     .await?;
                 return Ok(());
             }
         },
         _ => {
             msg.channel_id
-                .say(&ctx, "This isn't a text channel! Try again.")
+                .say(
+                    &ctx,
+                    "Something weird happened in my code... try restarting setup?",
+                )
                 .await?;
             return Ok(());
         }
@@ -331,7 +498,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                         old American male. The devs are trying their hardest to fix this, but it's not \
                         easy. If you have a spare (Linux) computer with 3TB of storage and a Nvidia \
                         GPU with at least 8GB VRAM that we can borrow, we would love to hear from you. \
-                        Please get in touch with 0/0 on the support server: https://discord.gg/zero-zero");
+                        Please get in touch with 0/0 on the support server: https://discord.gg/zero-boats");
                 }
             }
         }

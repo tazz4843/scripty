@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use serenity::{
     builder::CreateMessage,
     model::prelude::{Mentionable, Message},
@@ -8,6 +9,7 @@ pub async fn handle_message<'a, F>(ctx: &Context, msg: &Message, f: F) -> Option
 where
     for<'b> F: FnOnce(&'b mut CreateMessage<'a>) -> &'b mut CreateMessage<'a>,
 {
+    /*
     match msg.channel_id.send_message(ctx, f).await {
         Ok(m) => Some(m),
         Err(e) => {
@@ -27,4 +29,11 @@ where
             None
         }
     }
+    */
+    Some(
+        msg.channel_id
+            .send_message(ctx, f)
+            .await
+            .expect("failed to send message"),
+    )
 }

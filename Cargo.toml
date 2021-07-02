@@ -37,7 +37,7 @@ eval = "0.4"
 [dependencies.serenity]
 git = "https://github.com/serenity-rs/serenity"
 branch = "current"
-features = ["client", "standard_framework", "voice", "rustls_backend", "framework", "cache", "collector"]
+features = ["client", "standard_framework", "voice", "rustls_backend", "framework", "cache", "collector", "unstable_discord_api"]
 
 [dependencies.tokio]
 version = "1.6.1"

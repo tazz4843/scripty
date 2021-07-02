@@ -9,6 +9,7 @@ use scripty::{
     utils::ShardManagerWrapper,
     BOTOWNER_GROUP, CONFIG_GROUP, GENERAL_GROUP, MASTER_GROUP, UTILS_GROUP, VOICE_GROUP,
 };
+use serenity::client::parse_token;
 use serenity::{
     client::bridge::gateway::GatewayIntents,
     framework::{standard::buckets::LimitedFor, StandardFramework},
@@ -136,6 +137,9 @@ async fn main() {
         .group(&MASTER_GROUP)
         .group(&BOTOWNER_GROUP);
 
+    let token_info = parse_token(&config.token()).expect("invalid token");
+    let app_id = token_info.bot_user_id.as_u64();
+
     let mut client = Client::builder(&config.token())
         .intents(
             GatewayIntents::GUILD_MESSAGES
@@ -154,6 +158,7 @@ async fn main() {
         .type_map_insert::<ReqwestClient>(http_client)
         .framework(framework)
         .register_songbird_with(songbird)
+        .application_id(*app_id)
         .await
         .expect("Couldn't create the client");
     {
