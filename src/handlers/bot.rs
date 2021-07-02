@@ -117,7 +117,19 @@ impl EventHandler for Handler {
         match data {
             InteractionData::ApplicationCommand(_) => {}
             InteractionData::MessageComponent(data) => match data.custom_id.as_str() {
-                "tos_agree" => {
+                "tos_agree"
+                | "result_id_picker_0"
+                | "result_id_picker_1"
+                | "result_id_picker_2"
+                | "result_id_picker_3"
+                | "result_id_picker_4"
+                | "result_id_picker_overflow"
+                | "voice_id_picker_0"
+                | "voice_id_picker_1"
+                | "voice_id_picker_2"
+                | "voice_id_picker_3"
+                | "voice_id_picker_4"
+                | "voice_id_picker_overflow" => {
                     let _ = interaction
                         .message
                         .expect("no message supplied")
