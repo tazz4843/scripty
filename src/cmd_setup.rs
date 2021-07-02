@@ -266,7 +266,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                 for set in sets {
                     c.create_action_row(|r| {
                         r.create_select_menu(|b| {
-                            b.custom_id(format!("result_id_picker_{}", i))
+                            b.custom_id(format!("voice_id_picker_{}", i))
                                 .options(|o| {
                                     o.set_options(set.to_vec())
                                 })
@@ -278,7 +278,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                 if i < 5 {
                     c.create_action_row(|r| {
                         r.create_select_menu(|b| {
-                            b.custom_id("result_id_picker_overflow")
+                            b.custom_id("voice_id_picker_overflow")
                                 .options(|o| {
                                     o.set_options(rest.to_vec())
                                 })
