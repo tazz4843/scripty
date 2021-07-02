@@ -89,9 +89,9 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
     }
     drop(m);
 
-    /////////////////////////////////////////
-    // get the voice chat ID from the user //
-    /////////////////////////////////////////
+    ////////////////////////////////////////////////////////
+    // get the transcription result channel from the user //
+    ////////////////////////////////////////////////////////
     let mut channel_ids = vec![];
     for c in guild_id
         .channels(&ctx)
@@ -123,7 +123,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
 
     let mut m = match handle_message(&ctx, &msg, |m| {
         m.content("Select the channel you want me to send the results of transcriptions to from the dropdowns below.\n\
-        **NOTE**: this only includes channels where i have the Manage Webhooks permission. \
+        **NOTE**: this only includes channels where I have the Manage Webhooks permission. \
         If the channel you want doesn't show up, give me the Manage Webhooks permission there and try rerunning setup.")
             .components(|c| {
                 let (rest, sets) = channel_ids.as_rchunks::<25>();
@@ -225,9 +225,9 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
 
     drop(m);
 
-    ////////////////////////////////////////////////////////
-    // get the transcription result channel from the user //
-    ////////////////////////////////////////////////////////
+    /////////////////////////////////////////
+    // get the voice chat ID from the user //
+    /////////////////////////////////////////
     let mut channel_ids = vec![];
     for c in guild_id
         .channels(&ctx)
