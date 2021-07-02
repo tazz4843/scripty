@@ -3,6 +3,7 @@ use serenity::{
     client::Context,
     framework::standard::{macros::command, Args, CommandResult},
     model::channel::Message,
+    prelude::Mentionable,
 };
 use sqlx::query;
 use std::hint::unreachable_unchecked;
@@ -19,20 +20,18 @@ async fn cmd_add_premium(ctx: &Context, msg: &Message, mut args: Args) -> Comman
         let level = match args.single::<i16>() {
             Ok(l) => l,
             Err(e) => {
-                handle_message(ctx, msg, |m| {
+                handle_message!(ctx, msg, |m| {
                     m.content(format!("failed to parse #1 as i64 {}", e))
-                })
-                .await;
+                });
                 return Ok(());
             }
         };
         let guild_id = match args.single::<i64>() {
             Ok(l) => l,
             Err(e) => {
-                handle_message(ctx, msg, |m| {
+                handle_message!(ctx, msg, |m| {
                     m.content(format!("failed to parse #2 as i64 {}", e))
-                })
-                .await;
+                });
                 return Ok(());
             }
         };
@@ -44,9 +43,8 @@ async fn cmd_add_premium(ctx: &Context, msg: &Message, mut args: Args) -> Comman
         .execute(db)
         .await
     };
-    handle_message(ctx, msg, |m| {
+    handle_message!(ctx, msg, |m| {
         m.content(format!("here's the result: {:?}", success))
-    })
-    .await;
+    });
     Ok(())
 }
