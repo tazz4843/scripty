@@ -1,4 +1,4 @@
-use crate::{msg_handler::handle_message, utils::ShardManagerWrapper};
+use crate::utils::ShardManagerWrapper;
 use serenity::{
     client::Context,
     framework::standard::{macros::command, CommandResult},
@@ -11,8 +11,7 @@ use std::hint::unreachable_unchecked;
 whether the stack overflows before exit."]
 #[owners_only]
 async fn cmd_shutdown(ctx: &Context, msg: &Message) -> CommandResult {
-    if handle_message(ctx, msg, |m| m.content("Beginning shutdown..."))
-        .await
+    if handle_message!(ctx, msg, |m| m.content("Beginning shutdown..."))
         .is_none()
     {
         return Ok(());
@@ -24,8 +23,7 @@ async fn cmd_shutdown(ctx: &Context, msg: &Message) -> CommandResult {
     let manager = manager.write().await;
     manager.lock().await.shutdown_all().await;
 
-    if handle_message(ctx, msg, |m| m.content("All shards shutting down..."))
-        .await
+    if handle_message!(ctx, msg, |m| m.content("All shards shutting down..."))
         .is_none()
     {
         return Ok(());

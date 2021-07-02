@@ -6,7 +6,6 @@ use serenity::{
 };
 use sqlx::query;
 
-use crate::msg_handler::handle_message;
 use crate::{bind, globals::PgPoolKey, log, send_embed};
 use serenity::builder::CreateSelectMenuOption;
 use serenity::collector::CollectComponentInteraction;
@@ -46,7 +45,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
     //////////////////////////////////////////////////////
     // make user agree to ToS + Privacy Policy as a CYA //
     //////////////////////////////////////////////////////
-    let mut m = match handle_message(&ctx, &msg, |f| {
+    let mut m = match handle_message!(&ctx, &msg, |f| {
         f
             .content("By using Scripty you agree to the privacy policy, found here: https://scripty.imaskeleton.me/privacy_policy . \
     Type `ok` within 5 minutes to continue.")
@@ -59,7 +58,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                     })
                 })
             })
-    }).await
+    })
     {
         Some(m) => m,
         None => return Ok(()),
@@ -121,7 +120,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
         channel_ids.push(opt);
     }
 
-    let mut m = match handle_message(&ctx, &msg, |m| {
+    let mut m = match handle_message!(&ctx, &msg, |m| {
         m.content("Select the channel you want me to send the results of transcriptions to from the dropdowns below.\n\
         **NOTE**: this only includes channels where I have the Manage Webhooks permission. \
         If the channel you want doesn't show up, give me the Manage Webhooks permission there and try rerunning setup.")
@@ -152,7 +151,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                 }
                 c
             })
-    }).await {
+    }) {
         Some(m) => m,
         None => return Ok(()),
     };
@@ -257,7 +256,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
         channel_ids.push(opt);
     }
 
-    let mut m = match handle_message(&ctx, &msg, |m| {
+    let mut m = match handle_message!(&ctx, &msg, |m| {
         m.content("Select the voice chat you would like me to join and transcript from from the dropdowns below.\n\
         **NOTE**: you can temporarily change this at any time by dragging me to another VC, or permanently by rerunning setup.")
             .components(|c| {
@@ -287,7 +286,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                 }
                 c
             })
-    }).await {
+    }) {
         Some(m) => m,
         None => return Ok(()),
     };
