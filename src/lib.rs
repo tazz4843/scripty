@@ -28,6 +28,10 @@ use serenity::{
 };
 use std::{env, fmt::Display, io::Write};
 
+/// The module to handle message sending errors
+#[macro_use]
+pub mod msg_handler;
+
 /// The module for auto-joining to the VC
 pub mod auto_join;
 /// The module for binding the bot to a VC
@@ -80,8 +84,6 @@ pub mod metrics;
 pub mod metrics_counter;
 /// The module for the Prometheus webserver
 pub mod metrics_server;
-/// The module to handle message sending errors
-pub mod msg_handler;
 /// The module for a few useful utilities
 pub mod utils;
 
