@@ -1,9 +1,8 @@
-use crate::{globals::PgPoolKey, msg_handler::handle_message};
+use crate::{globals::PgPoolKey};
 use serenity::{
     client::Context,
     framework::standard::{macros::command, Args, CommandResult},
     model::channel::Message,
-    prelude::Mentionable,
 };
 use sqlx::query;
 use std::hint::unreachable_unchecked;

@@ -32,6 +32,7 @@ where
 
 macro_rules! handle_message {
     ($ctx:expr, $msg:expr, $f:expr) => {
+        use serenity::prelude::Mentionable;
         match $msg.channel_id.send_message($ctx, $f).await {
             Ok(m) => Some(m),
             Err(e) => {
