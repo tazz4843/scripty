@@ -8,20 +8,35 @@ use serenity::{
     framework::standard::{macros::command, CommandResult},
     model::prelude::Message,
 };
+use std::time::SystemTime;
+use crate::globals::PgPoolKey;
+use sqlx::query;
+use serenity::model::prelude::GuildId;
 
 #[command("ping")]
 #[aliases("p")]
 #[bucket = "general"]
 #[description = "Play a game of ping-pong!"]
 async fn cmd_ping(ctx: &Context, msg: &Message) -> CommandResult {
-    let latency = get_avg_ws_latency(ContextTypes::NoArc(ctx)).await;
-    let start = std::time::SystemTime::now();
-    msg.channel_id.broadcast_typing(&ctx.http).await?;
-    let ping_time = start.elapsed()?.as_millis();
+    let (ws_latency, _) = get_avg_ws_latency(ContextTypes::NoArc(ctx)).await;
+    let rest_api_latency = {
+        let st = SystemTime::now();
+        msg.channel_id.broadcast_typing(&ctx.http).await?;
+        st.elapsed()?.as_nanos() as f64
+    };
+    let db_latency = {
+        let data = ctx.data.read().await;
+        let db = unsafe { data.get::<PgPoolKey>().unwrap_unchecked() };
+        let guild_id = *msg.guild_id.unwrap_or(GuildId(675390855716274216)).as_u64();
+        let st = SystemTime::now();
+        query!("SELECT * FROM guilds WHERE guild_id = $1", guild_id as i64).fetch_optional(db).await?;
+        st.elapsed()?.as_nanos() as f64
+    };
     let mut embed = CreateEmbed::default();
     embed.title("🏓");
-    embed.field("WebSocket", format!("{}ms", latency.0), false);
-    embed.field("Discord REST API", format!("{}ms", ping_time), false);
+    embed.field("WebSocket", format!("{}ms", ws_latency), false);
+    embed.field("Discord REST API", format!("{}ms", rest_api_latency/1_000_000.0), false);
+    embed.field("PSQL", format!("{}ms", db_latency/1_000_000.0), false);
     send_embed(ctx, msg, false, embed).await;
     Ok(())
 }
