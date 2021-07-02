@@ -1,4 +1,4 @@
-use crate::{bind, log, send_embed};
+use crate::{bind, send_embed};
 use serenity::{
     builder::CreateEmbed,
     client::Context,
@@ -18,13 +18,7 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
     let bind_channel = match args.single::<u64>() {
         Ok(id) => ChannelId(id),
         Err(_) => {
-            if let Err(e) = msg
-                .reply(ctx, "The snowflake ID you gave was invalid.")
-                .await
-            {
-                log(ctx, format!("Failed to send message! {:?}", e)).await
-            }
-
+            handle_message!(&ctx, &msg, |m| m.content("The snowflake ID you gave was invalid."));
             return Ok(());
         }
     };
