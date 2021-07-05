@@ -28,11 +28,11 @@ use serenity::{
 };
 use std::{env, fmt::Display, io::Write};
 
+#[macro_use]
+pub mod macros;
 /// The module to handle message sending errors
 #[macro_use]
 pub mod msg_handler;
-#[macro_use]
-pub mod macros;
 
 /// The module for auto-joining to the VC
 pub mod auto_join;

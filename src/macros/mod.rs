@@ -1,3 +1,2 @@
-#[macro_use] mod serenity_err;
-
-pub use serenity_err::*;
+#[macro_use]
+pub mod serenity_err;

@@ -1,16 +1,15 @@
+#[macro_export]
 macro_rules! handle_serenity_error {
     ($e:expr) => {
         {
-            use std::borrow::Cow;
             use std::io::ErrorKind as IoErrorKind;
             use std::num::IntErrorKind;
-            use tungstenite::error::Error as TungsteniteError;
             use serde_json::error::Category;
             use serenity::Error;
             use serenity::{
                 http::error::Error as HttpError,
                 model::error::Error as ModelError,
-                prelude::{ClientError, Context, GatewayError},
+                prelude::{ClientError, GatewayError},
             };
             match $e {
                 Error::Decode(reason, _) => {
@@ -277,48 +276,7 @@ macro_rules! handle_serenity_error {
                     format!("A TLS error happened... try again? {}", err)
                 }
                 Error::Tungstenite(err) => {
-                    let err_msg1 = match err {
-                        TungsteniteError::ConnectionClosed => "WebSocket closed".to_string(),
-                        TungsteniteError::AlreadyClosed => "WebSocket already closed".to_string(),
-                        TungsteniteError::Io(err) => {
-                            format!("I/O error: this is fatal. {}", err)
-                        }
-                        TungsteniteError::Tls(err) => {
-                            format!("TLS error: this is probably fatal. {}", err)
-                        }
-                        TungsteniteError::Capacity(cap) => format!(
-                            "Capacity error: {}",
-                            match cap {
-                                Cow::Borrowed(cap) => cap.to_string(),
-                                Cow::Owned(cap) => cap.to_string(),
-                            }
-                        ),
-                        TungsteniteError::Protocol(proto) => format!(
-                            "Protocol error: {}",
-                            match proto {
-                                Cow::Borrowed(proto) => proto.to_string(),
-                                Cow::Owned(proto) => proto.to_string(),
-                            }
-                        ),
-                        TungsteniteError::SendQueueFull(msg) => {
-                            format!("Send queue full: {}", msg)
-                        }
-                        TungsteniteError::Utf8 => "UTF-8 encoding error".to_string(),
-                        TungsteniteError::Url(err) => format!(
-                            "URL error: {}",
-                            match err {
-                                Cow::Borrowed(err) => err.to_string(),
-                                Cow::Owned(err) => err.to_string(),
-                            }
-                        ),
-                        TungsteniteError::Http(err) => {
-                            format!("Error on underlying HTTP protocol: {}", err)
-                        }
-                        TungsteniteError::HttpFormat(err) => {
-                            format!("Low-level error on underlying HTTP protocol: {}", err)
-                        }
-                    };
-                    format!("A WebSocket error happened... try again? {}", err_msg1)
+                    format!("A WebSocket error happened... try again? {}", err)
                 }
                 _ => "Some other unknown error happened... try again?".to_string(),
             }
