@@ -9,7 +9,9 @@ use sqlx::query;
 use crate::{bind, globals::PgPoolKey, log, send_embed};
 use serenity::builder::CreateSelectMenuOption;
 use serenity::collector::CollectComponentInteraction;
-use serenity::model::prelude::{ButtonStyle, InteractionData, UserId};
+use serenity::model::prelude::message_component::ButtonStyle;
+use serenity::model::prelude::message_component::ComponentType;
+use serenity::model::prelude::UserId;
 use std::hint;
 use tokio::time::Duration;
 
@@ -58,8 +60,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                     })
                 })
             })
-    })
-    {
+    }) {
         Some(m) => m,
         None => return Ok(()),
     };
@@ -68,14 +69,8 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
         .channel_id(msg.channel_id)
         .guild_id(unsafe { msg.guild_id.unwrap_unchecked() })
         .filter(|action| {
-            let data = match action.data {
-                Some(ref d) => d,
-                None => return false,
-            };
-            match data {
-                InteractionData::ApplicationCommand(_) => false,
-                InteractionData::MessageComponent(data) => data.custom_id.as_str() == "tos_agree",
-            }
+            action.data.component_type == ComponentType::Button
+                && action.data.custom_id.as_str() == "tos_agree"
         })
         .timeout(Duration::from_secs(300))
         .await
@@ -92,12 +87,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
     // get the transcription result channel from the user //
     ////////////////////////////////////////////////////////
     let mut channel_ids = vec![];
-    for c in guild_id
-        .channels(&ctx)
-        .await
-        .expect("failed to fetch guild channels")
-        .iter()
-    {
+    for c in guild_id.channels(&ctx).await?.iter() {
         match c.1.kind {
             ChannelType::Text | ChannelType::News => {}
             _ => continue,
@@ -165,46 +155,23 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
         .timeout(Duration::from_secs(60))
         .await
     {
-        Some(i) => match i.data {
-            Some(ref d) => {
-                if let InteractionData::MessageComponent(comp) = d {
-                    match comp.values.get(0) {
-                        Some(v) => match v.parse() {
-                            Ok(v) => v,
-                            Err(e) => {
-                                let _ = m
-                                    .edit(&ctx, |m| {
-                                        m.content("Discord had a issue and sent us the wrong ID. Try again.")
-                                            .components(|c| c)
-                                    })
-                                    .await;
-                                return Ok(());
-                            }
-                        },
-                        None => {
-                            let _ = m
-                                .edit(&ctx, |m| {
-                                    m.content("Discord had a issue and didn't send us enough IDs. Try again.")
-                                        .components(|c| c)
-                                })
-                                .await;
-                            return Ok(());
-                        }
-                    }
-                } else {
+        Some(i) => match i.data.values.get(0) {
+            Some(v) => match v.parse() {
+                Ok(v) => v,
+                Err(e) => {
                     let _ = m
                         .edit(&ctx, |m| {
-                            m.content("Discord had a issue and sent us the wrong type of data. Try again.")
+                            m.content("Discord had a issue and sent us the wrong ID. Try again.")
                                 .components(|c| c)
                         })
                         .await;
                     return Ok(());
                 }
-            }
+            },
             None => {
                 let _ = m
                     .edit(&ctx, |m| {
-                        m.content("Discord had a issue and didn't send us any data. Try again.")
+                        m.content("Discord had a issue and didn't send us enough IDs. Try again.")
                             .components(|c| c)
                     })
                     .await;
@@ -228,12 +195,7 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
     // get the voice chat ID from the user //
     /////////////////////////////////////////
     let mut channel_ids = vec![];
-    for c in guild_id
-        .channels(&ctx)
-        .await
-        .expect("failed to fetch guild channels")
-        .iter()
-    {
+    for c in guild_id.channels(&ctx).await?.iter() {
         match c.1.kind {
             ChannelType::Voice | ChannelType::Stage => {}
             _ => continue,
@@ -300,46 +262,23 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
         .timeout(Duration::from_secs(60))
         .await
     {
-        Some(i) => match i.data {
-            Some(ref d) => {
-                if let InteractionData::MessageComponent(comp) = d {
-                    match comp.values.get(0) {
-                        Some(v) => match v.parse() {
-                            Ok(v) => v,
-                            Err(e) => {
-                                let _ = m
-                                    .edit(&ctx, |m| {
-                                        m.content("Discord had a issue and sent us the wrong ID. Try again.")
-                                            .components(|c| c)
-                                    })
-                                    .await;
-                                return Ok(());
-                            }
-                        },
-                        None => {
-                            let _ = m
-                                .edit(&ctx, |m| {
-                                    m.content("Discord had a issue and didn't send us enough IDs. Try again.")
-                                        .components(|c| c)
-                                })
-                                .await;
-                            return Ok(());
-                        }
-                    }
-                } else {
+        Some(i) => match i.data.values.get(0) {
+            Some(v) => match v.parse() {
+                Ok(v) => v,
+                Err(e) => {
                     let _ = m
                         .edit(&ctx, |m| {
-                            m.content("Discord had a issue and sent us the wrong type of data. Try again.")
+                            m.content("Discord had a issue and sent us the wrong ID. Try again.")
                                 .components(|c| c)
                         })
                         .await;
                     return Ok(());
                 }
-            }
+            },
             None => {
                 let _ = m
                     .edit(&ctx, |m| {
-                        m.content("Discord had a issue and didn't send us any data. Try again.")
+                        m.content("Discord had a issue and didn't send us enough IDs. Try again.")
                             .components(|c| c)
                     })
                     .await;
