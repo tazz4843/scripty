@@ -18,7 +18,8 @@ async fn cmd_join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
     let bind_channel = match args.single::<u64>() {
         Ok(id) => ChannelId(id),
         Err(_) => {
-            handle_message!(&ctx, &msg, |m| m.content("The snowflake ID you gave was invalid."));
+            handle_message!(&ctx, &msg, |m| m
+                .content("The snowflake ID you gave was invalid."));
             return Ok(());
         }
     };
