@@ -33,7 +33,7 @@ prometheus-static-metric = "0.5"
 hyper = { version = "0.14", features = ["server"] }
 rocket = { git = "https://github.com/SergioBenitez/Rocket", rev = "f1ecb79" }
 rand = "0.8"
-ring = "=0.16.19"
+ring = "=0.16.20"
 eval = "0.4"
 tungstenite = "=0.11.1"
 indexmap = "=1.6.2"
