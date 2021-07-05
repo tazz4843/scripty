@@ -3,7 +3,8 @@ use crate::{
     globals::{BotConfig, START_TIME},
     metrics_counter, utils,
 };
-use serenity::model::prelude::{Interaction, InteractionData, InteractionResponseType};
+use serenity::model::interactions::InteractionType;
+use serenity::model::prelude::{Interaction, InteractionResponseType};
 use serenity::{
     async_trait,
     client::{Context, EventHandler},
@@ -105,41 +106,47 @@ impl EventHandler for Handler {
         }
     }
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        let _ = interaction
-            .create_interaction_response(&ctx, |r| {
-                r.kind(InteractionResponseType::DeferredUpdateMessage)
-            })
-            .await;
-        let data = match interaction.data {
-            Some(d) => d,
-            None => return,
-        };
-        match data {
-            InteractionData::ApplicationCommand(_) => {}
-            InteractionData::MessageComponent(data) => match data.custom_id.as_str() {
-                "tos_agree"
-                | "result_id_picker_0"
-                | "result_id_picker_1"
-                | "result_id_picker_2"
-                | "result_id_picker_3"
-                | "result_id_picker_4"
-                | "result_id_picker_overflow"
-                | "voice_id_picker_0"
-                | "voice_id_picker_1"
-                | "voice_id_picker_2"
-                | "voice_id_picker_3"
-                | "voice_id_picker_4"
-                | "voice_id_picker_overflow" => {
-                    let _ = interaction
-                        .message
-                        .expect("no message supplied")
-                        .regular()
-                        .expect("not a regular message")
-                        .delete(&ctx)
-                        .await;
+        match interaction.kind() {
+            InteractionType::ApplicationCommand => {
+                let interaction = unsafe { interaction.application_command().unwrap_unchecked() };
+                let _ = interaction
+                    .create_interaction_response(&ctx, |r| {
+                        r.kind(InteractionResponseType::DeferredUpdateMessage)
+                    })
+                    .await;
+            }
+            InteractionType::MessageComponent => {
+                let interaction = unsafe { interaction.message_component().unwrap_unchecked() };
+                let _ = interaction
+                    .create_interaction_response(&ctx, |r| {
+                        r.kind(InteractionResponseType::DeferredUpdateMessage)
+                    })
+                    .await;
+                match interaction.data.custom_id.as_str() {
+                    "tos_agree"
+                    | "result_id_picker_0"
+                    | "result_id_picker_1"
+                    | "result_id_picker_2"
+                    | "result_id_picker_3"
+                    | "result_id_picker_4"
+                    | "result_id_picker_overflow"
+                    | "voice_id_picker_0"
+                    | "voice_id_picker_1"
+                    | "voice_id_picker_2"
+                    | "voice_id_picker_3"
+                    | "voice_id_picker_4"
+                    | "voice_id_picker_overflow" => {
+                        let _ = interaction
+                            .message
+                            .regular()
+                            .expect("not a regular message")
+                            .delete(&ctx)
+                            .await;
+                    }
+                    _ => {}
                 }
-                _ => {}
-            },
+            }
+            _ => {}
         };
     }
 }
