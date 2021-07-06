@@ -202,7 +202,7 @@ impl VoiceEventHandler for Receiver {
                     let map = self.ssrc_map.read().await;
                     match map.get(&packet.ssrc) {
                         Some(u) => u.clone(),
-                        None => UserId(0),
+                        None => return None,
                     }
                 };
 
@@ -214,9 +214,7 @@ impl VoiceEventHandler for Receiver {
                     let mut buf = self.audio_buffer.write().await;
                     let b = match buf.get_mut(&packet.ssrc) {
                         Some(b) => b,
-                        None => {
-                            return None;
-                        }
+                        None => return None,
                     };
                     b.extend(audio);
                 }
