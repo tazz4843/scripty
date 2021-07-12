@@ -11,6 +11,7 @@ use serenity::{async_trait, model::prelude::*, prelude::*};
 use std::lazy::SyncOnceCell as OnceCell;
 use std::sync::Arc;
 
+#[allow(clippy::nonstandard_macro_braces)] // originates in a macro, nothing i can do
 make_static_metric! {
     pub label_enum UserType {
         user,

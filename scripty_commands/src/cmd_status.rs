@@ -1,3 +1,4 @@
+use scripty_macros::handle_serenity_error;
 use serenity::{
     client::Context,
     framework::standard::{macros::command, CommandResult},
@@ -26,7 +27,7 @@ async fn cmd_status(ctx: &Context, msg: &Message) -> CommandResult {
             sys_avg.fifteen,
             sys_avg.five,
             sys_avg.one,
-            sys_info.cpu_temp().unwrap_or_else(|_| 0_f32),
+            sys_info.cpu_temp().unwrap_or(0.0),
             sys_info
                 .uptime()
                 .unwrap_or_else(|_| std::time::Duration::new(0, 0)),
@@ -113,7 +114,7 @@ async fn cmd_status(ctx: &Context, msg: &Message) -> CommandResult {
         })
         .await
     {
-        if let Err(_) = msg
+        if let Err(e) = msg
             .author
             .direct_message(ctx, |m| {
                 m.content(format!(
@@ -122,7 +123,9 @@ async fn cmd_status(ctx: &Context, msg: &Message) -> CommandResult {
                 ))
             })
             .await
-        {};
+        {
+            handle_serenity_error!(e);
+        };
     };
 
     Ok(())

@@ -106,7 +106,7 @@ impl VoiceEventHandler for Receiver {
                 ..
             }) => {
                 if let Some(user_id) = user_id {
-                    if !do_check(&user_id, &self.active_users.read().await) {
+                    if !do_check(user_id, &self.active_users.read().await) {
                         return None;
                     }
 
@@ -199,7 +199,7 @@ impl VoiceEventHandler for Receiver {
                 let uid = {
                     let map = self.ssrc_map.read().await;
                     match map.get(&packet.ssrc) {
-                        Some(u) => u.clone(),
+                        Some(u) => *u,
                         None => return None,
                     }
                 };

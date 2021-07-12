@@ -52,6 +52,7 @@ async fn root() -> &'static str {
 }
 
 async fn _start(tx: oneshot::Sender<Shutdown>) {
+    #[allow(clippy::nonstandard_macro_braces)] // originates in a macro, nothing i can do
     let r = rocket::build()
         .mount("/", rocket::routes![metrics])
         .mount("/", rocket::routes![root])
