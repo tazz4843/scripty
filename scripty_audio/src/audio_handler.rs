@@ -102,21 +102,19 @@ impl VoiceEventHandler for Receiver {
             EventContext::SpeakingStateUpdate(Speaking {
                 speaking,
                 ssrc,
-                user_id,
+                user_id: Some(user_id),
                 ..
             }) => {
-                if let Some(user_id) = user_id {
-                    if !do_check(user_id, &self.active_users.read().await) {
-                        return None;
-                    }
-
-                    {
-                        let mut map = self.ssrc_map.write().await;
-                        map.insert(*ssrc, *user_id);
-                    }
-                    let mut audio_buf = self.audio_buffer.write().await;
-                    audio_buf.insert(*ssrc, Vec::new());
+                if !do_check(user_id, &self.active_users.read().await) {
+                    return None;
                 }
+
+                {
+                    let mut map = self.ssrc_map.write().await;
+                    map.insert(*ssrc, *user_id);
+                }
+                let mut audio_buf = self.audio_buffer.write().await;
+                audio_buf.insert(*ssrc, Vec::new());
             }
             EventContext::SpeakingUpdate { ssrc, speaking } => {
                 let uid: u64 = {
