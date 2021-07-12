@@ -1,0 +1,29 @@
+[package]
+name = "scripty_utils"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+scripty_db = { path = "../scripty_db" }
+chrono = "0.4"
+tracing = "0.1"
+rand = "0.8"
+
+[dependencies.reqwest]
+version = "0.11"
+features = ["json"]
+
+[dependencies.sqlx]
+version = "0.5"
+features = ["runtime-tokio-rustls", "postgres", "offline"]
+
+[dependencies.serenity]
+git = "https://github.com/serenity-rs/serenity"
+branch = "current"
+features = ["client", "standard_framework", "voice", "rustls_backend", "framework", "cache", "collector", "unstable_discord_api"]
+
+[dependencies.tokio]
+version = "1.6.1"
+features = ["full"]

@@ -11,7 +11,23 @@ license = "EUPL-1.2"
 lto = "fat"
 codegen-units = 1
 
+[workspace]
+members = [
+  "scripty_macros",
+  "scripty_commands",
+  "scripty_db",
+  "scripty_core",
+  "scripty_audio",
+  "scripty_audio_utils",
+  "scripty_config",
+  "scripty_metrics",
+  "scripty_webserver",
+  "scripty_utils",
+]
+
 [dependencies]
+scripty_core = { path = "scripty_core/" }
+
 tracing = "0.1"
 tracing-subscriber = "0.2"
 songbird = "0.1"

@@ -1,0 +1,15 @@
+[package]
+name = "scripty_webserver"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tracing = "0.1"
+rocket = { git = "https://github.com/SergioBenitez/Rocket", rev = "f1ecb79" }
+scripty_metrics = { path = "../scripty_metrics" }
+
+[dependencies.tokio]
+version = "1.7"
+features = ["full"]

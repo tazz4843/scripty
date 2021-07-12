@@ -1,0 +1,23 @@
+[package]
+name = "scripty_metrics"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tracing = "0.1"
+chrono = "0.4"
+prometheus = "0.12"
+prometheus-static-metric = "0.5"
+serde = "1.0"
+serde_json = "1.0"
+
+[dependencies.tokio]
+version = "1.6.1"
+features = ["full"]
+
+[dependencies.serenity]
+git = "https://github.com/serenity-rs/serenity"
+branch = "current"
+features = ["client", "standard_framework", "voice", "rustls_backend", "framework", "cache", "collector", "unstable_discord_api"]

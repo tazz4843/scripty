@@ -1,0 +1,33 @@
+[package]
+name = "scripty_core"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tracing = "0.1"
+tracing-subscriber = "0.2"
+songbird = "0.1"
+
+scripty_config = { path = "../scripty_config" }
+scripty_commands = { path = "../scripty_commands" }
+scripty_audio = { path = "../scripty_audio" }
+scripty_audio_utils = { path = "../scripty_audio_utils" }
+scripty_utils = { path = "../scripty_utils" }
+scripty_db = { path = "../scripty_db" }
+scripty_metrics = { path = "../scripty_metrics" }
+scripty_webserver = { path = "../scripty_webserver" }
+
+[dependencies.reqwest]
+version = "0.11"
+features = ["json"]
+
+[dependencies.serenity]
+git = "https://github.com/serenity-rs/serenity"
+branch = "current"
+features = ["client", "standard_framework", "voice", "rustls_backend", "framework", "cache", "collector", "unstable_discord_api"]
+
+[dependencies.tokio]
+version = "1.7"
+features = ["full"]
