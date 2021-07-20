@@ -1,17 +1,26 @@
 use crate::PG_POOL;
-use scripty_config::BotConfig;
+use scripty_config::{BotConfig, DatabaseConnection};
 use sqlx::postgres::PgConnectOptions;
 use sqlx::{query, PgPool, Pool, Postgres};
+use std::path::PathBuf;
 
 pub async fn set_db() -> Pool<Postgres> {
+    let mut db_conn_options = PgConnectOptions::new();
+
     let config = BotConfig::get().expect("Couldn't get BOT_CONFIG to get the database file");
-    let (db_host, db_port, db_user, db_password, db_db) = config.db_connection();
-    let db_conn_options = PgConnectOptions::new();
+    let (db_user, db_password, db_db) = config.db_login();
+    db_conn_options = match config.db_connection() {
+        DatabaseConnection::TcpSocket(host, port) => {
+            db_conn_options.host(host.as_str()).port(port)
+        }
+        DatabaseConnection::UnixSocket(path) => {
+            db_conn_options.socket(PathBuf::from(path))
+        }
+    };
+
     let db = PgPool::connect_with(
         db_conn_options
-            .host(db_host)
             .username(db_user)
-            .port(db_port)
             .database(db_db)
             .application_name("scripty")
             .password(db_password)
