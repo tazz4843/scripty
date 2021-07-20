@@ -103,13 +103,13 @@ impl BotConfig {
     }
     /// Get the database login.
     ///
-    /// Returned tuple is user, password, and database respectively
+    /// Returned tuple is user, password, and database respectively.
     pub fn db_login(&self) -> (&String, &String, &String) {
         (&self.user, &self.password, &self.db)
     }
     /// Get the database connection.
     ///
-    /// Returned enum specifies whether to use a Unix socket or a TCP socket
+    /// Returned enum specifies whether to use a Unix socket or a TCP socket.
     pub fn db_connection(&self) -> DatabaseConnection {
         if let (Some(h), Some(p)) = (&self.host, self.port) {
             DatabaseConnection::TcpSocket(h.clone(), p)
