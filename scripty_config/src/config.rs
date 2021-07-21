@@ -1,8 +1,8 @@
 use crate::{DatabaseConnection, BOT_CONFIG};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{fs, io};
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct BotConfig {
     token: String,
     log_file: String,
@@ -23,45 +23,32 @@ pub struct BotConfig {
     unix_socket: Option<String>,
 }
 
-const DEFAULT_CONFIG: &str =
-    "# The token of the bot: https://discordpy.readthedocs.io/en/latest/discord.html#creating-a-bot-account
-token = \"TOKEN HERE\"
-
-# The name of the file for logging stuff if it couldn't DM you
-log_file = \"logs.txt\"
-
-# If the bot should DM you when it's added to a guild: Must be either \"true\" or \"false\"!
-log_guild_added = true
-
-# The invite link for the bot: https://discordpy.readthedocs.io/en/latest/discord.html#inviting-your-bot
-invite = \"https://scripty.imaskeleton.me/invite\"
-
-# The link of the bot's repo's GitHub's page
-github = \"https://github.com/tazz4843/scripty\"
-
-# The colour utils::send_embed() will use if is_error is false: https://www.checkyourmath.com/convert/color/rgb_decimal.php
-colour = 11771355
-
-# Full path to the DeepSpeech model and scorer.
-model_path = \"/home/user/deepspeech\"\
-
-# DB login stuff: PostgreSQL
-host = \"localhost\"\
-port = 5432
-user = \"scripty\"\
-password = \"scripty\"\
-db = \"scripty\"
-";
-
 impl BotConfig {
     pub fn set(config_path: &str) {
         let config: BotConfig =
             toml::from_str(&fs::read_to_string(config_path).unwrap_or_else(|err| {
                 if err.kind() == io::ErrorKind::NotFound {
-                    fs::write(config_path, DEFAULT_CONFIG).unwrap_or_else(|_| {
+                    let default_cfg = BotConfig {
+                        token: "AAAAAAAAAAAAAAAAAAAA.AAAAAAA.AAAAAAAAAAAAAA".to_string(),
+                        log_file: "log.txt".to_string(),
+                        log_guild_added: true,
+                        invite: "https://scripty.imaskeleton.me/invite".to_string(),
+                        github: "https://github.com/tazz4843/scripty".to_string(),
+                        colour: 11771355,
+                        model_path: "/home/user/deepspeech".to_string(),
+                        user: "scripty".to_string(),
+                        password: "scripty".to_string(),
+                        db: "scripty".to_string(),
+                        host: None,
+                        port: None,
+                        unix_socket: Some("/var/run/postgresql/".to_string()),
+                    };
+                    let default_cfg_str =
+                        toml::to_string_pretty(&default_cfg).expect("failed to serialize config");
+                    fs::write(config_path, &default_cfg_str).unwrap_or_else(|_| {
                         panic!(
                             "Couldn't write the default config, write it manually please:\n{}",
-                            DEFAULT_CONFIG
+                            default_cfg_str
                         )
                     });
                     panic!("Created the default config, edit it and restart please");
