@@ -134,6 +134,22 @@ make_static_metric! {
         unknown,
     }
 
+    pub label_enum CommandsUsed {
+        info,
+        prefix,
+        donate,
+        ping,
+        status,
+        credits,
+        stats,
+        join,
+        setup,
+        rejoin_all,
+        shutdown,
+        add_premium,
+        eval
+    }
+
     pub struct MessageCounterVec: IntCounter {
         "user_type" => UserType,
     }
@@ -164,6 +180,10 @@ make_static_metric! {
 
     pub struct LoadAvgStatsVec: Gauge {
         "load_avg" => LoadAvgStats,
+    }
+
+    pub struct CommandsUsedVec: IntCounter {
+        "command_name" => CommandsUsed,
     }
 }
 
@@ -210,6 +230,8 @@ pub struct Metrics {
     pub network_stats: NetworkStatsVec,
     pub load_avg_stats: LoadAvgStatsVec,
     pub cpu_temp: Gauge,
+    pub total_commands: IntCounter,
+    pub commands: CommandsUsedVec,
 }
 
 #[allow(clippy::new_without_default)]
@@ -279,6 +301,17 @@ impl Metrics {
         let cpu_temp = Gauge::new("cpu_temp", "CPU temperature").unwrap();
         registry.register(Box::new(cpu_temp.clone())).unwrap();
 
+        let total_commands_used =
+            IntCounter::new("total_commands_used", "All commands used").unwrap();
+        registry
+            .register(Box::new(total_commands_used.clone()))
+            .unwrap();
+
+        let commands_used =
+            IntCounterVec::new(Opts::new("commands_used", "Commands used"), &["commands"]).unwrap();
+        let commands_used_static = CommandsUsedVec::from(&commands_used);
+        registry.register(Box::new(commands_used.clone())).unwrap();
+
         Self {
             registry,
             start_time: Utc::now().naive_utc(),
@@ -296,6 +329,8 @@ impl Metrics {
             network_stats: network_stats_static,
             load_avg_stats: load_avg_static,
             cpu_temp,
+            total_commands: total_commands_used,
+            commands: commands_used_static,
         }
     }
 
