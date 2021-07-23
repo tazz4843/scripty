@@ -21,20 +21,25 @@ make_static_metric! {
         nice,
         system,
         interrupt,
-        idle
+        idle,
+        iowait,
     }
 
     pub label_enum MemoryUsageType {
-        total,
-        free,
         active,
-        inactive,
-        wired,
+        active_anon,
+        active_file,
+        buffer,
         cache,
-        zfs_arc,
+        inactive,
+        inactive_anon,
+        inactive_file,
+        available,
+        free,
+        total,
     }
 
-    pub label_enum DiskStats {
+    pub label_enum BlockStats {
         read_ios,
         read_merges,
         read_sectors,
@@ -150,8 +155,8 @@ make_static_metric! {
         "memory_type" => MemoryUsageType,
     }
 
-    pub struct DiskStatsVec: IntGauge {
-        "disk_stats" => DiskStats,
+    pub struct BlockStatsVec: IntGauge {
+        "disk_stats" => BlockStats,
     }
 
     pub struct SocketStatsVec: IntGauge {
@@ -205,7 +210,7 @@ pub struct Metrics {
     pub avg_audio_process_time: IntGauge,
     pub cpu_usage: CpuUsageVec,
     pub mem_usage: MemoryUsageVec,
-    pub disk_stats: DiskStatsVec,
+    pub block_stats: BlockStatsVec,
     pub socket_stats: SocketStatsVec,
     pub network_stats: NetworkStatsVec,
     pub load_avg_stats: LoadAvgStatsVec,
@@ -256,10 +261,10 @@ impl Metrics {
         let mem_usage_static = MemoryUsageVec::from(&mem_usage);
         registry.register(Box::new(mem_usage.clone())).unwrap();
 
-        let disk_stats =
-            IntGaugeVec::new(Opts::new("disk_io", "Disk statistics"), &["disk_stats"]).unwrap();
-        let disk_stats_static = DiskStatsVec::from(&mem_usage);
-        registry.register(Box::new(disk_stats.clone())).unwrap();
+        let block_stats =
+            IntGaugeVec::new(Opts::new("block_io", "Block statistics"), &["disk_stats"]).unwrap();
+        let block_stats_static = BlockStatsVec::from(&mem_usage);
+        registry.register(Box::new(block_stats.clone())).unwrap();
 
         let load_avg =
             GaugeVec::new(Opts::new("load_avg", "Average system load"), &["load_avg"]).unwrap();
@@ -291,7 +296,7 @@ impl Metrics {
             avg_audio_process_time: audio_process,
             cpu_usage: cpu_usage_static,
             mem_usage: mem_usage_static,
-            disk_stats: disk_stats_static,
+            block_stats: block_stats_static,
             socket_stats: socket_stats_static,
             network_stats: network_stats_static,
             load_avg_stats: load_avg_static,
