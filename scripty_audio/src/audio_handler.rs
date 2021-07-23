@@ -63,7 +63,7 @@ impl Receiver {
             trace!("constructing new receiver for unknown guild");
         };
 
-        let ssrc_map = Arc::new(RwLock::new(HashMap::new()));
+        let ssrc_map = Arc::new(DashMap::new());
         let audio_buffer = Arc::new(RwLock::new(HashMap::new()));
         let webhook = Arc::new(webhook);
         let active_users = Arc::new(RwLock::new(BTreeSet::new()));
