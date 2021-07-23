@@ -4,7 +4,10 @@
 /// Code used from sushiibot
 /// https://raw.githubusercontent.com/sushiibot/sushii-2/888fbcdaecc0838e5c3735a5aac677a2d327ef10/src/model/metrics.rs
 use chrono::{naive::NaiveDateTime, offset::Utc};
-use prometheus::{Encoder, IntCounter, IntCounterVec, IntGauge, Opts, Registry, TextEncoder};
+use prometheus::{
+    Encoder, GaugeVec, IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry,
+    TextEncoder,
+};
 use prometheus_static_metric::make_static_metric;
 use serde::{Deserialize, Serialize};
 use serenity::{async_trait, model::prelude::*, prelude::*};
@@ -13,6 +16,61 @@ use std::sync::Arc;
 
 #[allow(clippy::nonstandard_macro_braces)] // originates in a macro, nothing i can do
 make_static_metric! {
+    pub label_enum CpuUsageType {
+        user,
+        nice,
+        system,
+        interrupt,
+        idle
+    }
+
+    pub label_enum MemoryUsageType {
+        total,
+        free,
+        active,
+        inactive,
+        wired,
+        cache,
+        zfs_arc,
+    }
+
+    pub label_enum DiskStats {
+        read_ios,
+        read_merges,
+        read_sectors,
+        read_ticks,
+        write_ios,
+        write_merges,
+        write_sectors,
+        write_ticks,
+        in_flight,
+        io_ticks,
+        time_in_queue,
+    }
+
+    pub label_enum SocketStats {
+        tcp_sockets_in_use,
+        tcp_sockets_orphaned,
+        udp_sockets_in_use,
+        tcp6_sockets_in_use,
+        udp6_sockets_in_use,
+    }
+
+    pub label_enum NetworkStats {
+        rx_bytes,
+        tx_bytes,
+        rx_packets,
+        tx_packets,
+        rx_errors,
+        tx_errors,
+    }
+
+    pub label_enum LoadAvgStats {
+        one,
+        five,
+        fifteen
+    }
+
     pub label_enum UserType {
         user,
         other_bot,
@@ -65,6 +123,30 @@ make_static_metric! {
     pub struct EventCounterVec: IntCounter {
         "event_type" => EventType,
     }
+
+    pub struct CpuUsageVec: Gauge {
+        "cpu_type" => CpuUsageType,
+    }
+
+    pub struct MemoryUsageVec: IntGauge {
+        "memory_type" => MemoryUsageType,
+    }
+
+    pub struct DiskStatsVec: IntGauge {
+        "disk_stats" => DiskStats,
+    }
+
+    pub struct SocketStatsVec: IntGauge {
+        "socket_stats" => SocketStats,
+    }
+
+    pub struct NetworkStatsVec: IntGauge {
+        "network_stats" => NetworkStats
+    }
+
+    pub struct LoadAvgStatsVec: Gauge {
+        "load_avg" => LoadAvgStats,
+    }
 }
 
 pub static METRICS: OnceCell<Arc<Metrics>> = OnceCell::new();
@@ -103,43 +185,77 @@ pub struct Metrics {
     pub ms_transcribed: IntCounter,
     pub total_events: IntCounter,
     pub avg_audio_process_time: IntGauge,
+    pub cpu_usage: CpuUsageVec,
+    pub mem_usage: MemoryUsageVec,
+    pub disk_stats: DiskStatsVec,
+    pub socket_stats: SocketStatsVec,
+    pub network_stats: NetworkStatsVec,
+    pub load_avg_stats: LoadAvgStatsVec,
 }
 
 #[allow(clippy::new_without_default)]
 impl Metrics {
     pub fn new() -> Self {
+        let registry = Registry::new_custom(Some("scripty".into()), None).unwrap();
+
         let messages_vec =
             IntCounterVec::new(Opts::new("messages", "Received messages"), &["user_type"]).unwrap();
         let messages_static_vec = MessageCounterVec::from(&messages_vec);
+        registry.register(Box::new(messages_vec)).unwrap();
 
         let events_vec =
             IntCounterVec::new(Opts::new("events", "Gateway events"), &["event_type"]).unwrap();
         let events_static_vec = EventCounterVec::from(&events_vec);
+        registry.register(Box::new(events_vec)).unwrap();
 
         let guilds_gauge = IntGauge::new("guilds", "Current guilds").unwrap();
+        registry.register(Box::new(guilds_gauge.clone())).unwrap();
+
         let members_gauge = IntGauge::new("members", "Current members").unwrap();
+        registry.register(Box::new(members_gauge.clone())).unwrap();
 
         let ms_transcribed =
             IntCounter::new("audio_transcribed", "Milliseconds of audio transcribed").unwrap();
+        registry.register(Box::new(ms_transcribed.clone())).unwrap();
 
         let events = IntCounter::new("total_events", "Total gateway events").unwrap();
+        registry.register(Box::new(events.clone())).unwrap();
 
-        let avg_audio_process_time = IntGauge::new(
+        let audio_process = IntGauge::new(
             "avg_audio_process_time",
             "Average time to process one audio packet. Includes bots.",
         )
         .unwrap();
+        registry.register(Box::new(audio_process.clone())).unwrap();
 
-        let registry = Registry::new_custom(Some("scripty".into()), None).unwrap();
-        registry.register(Box::new(messages_vec)).unwrap();
-        registry.register(Box::new(events_vec)).unwrap();
-        registry.register(Box::new(guilds_gauge.clone())).unwrap();
-        registry.register(Box::new(members_gauge.clone())).unwrap();
-        registry.register(Box::new(ms_transcribed.clone())).unwrap();
-        registry.register(Box::new(events.clone())).unwrap();
-        registry
-            .register(Box::new(avg_audio_process_time.clone()))
-            .unwrap();
+        let cpu_usage = GaugeVec::new(Opts::new("cpu_usage", "CPU usage"), &["cpu_type"]).unwrap();
+        let cpu_usage_static = CpuUsageVec::from(&cpu_usage);
+        registry.register(Box::new(cpu_usage.clone())).unwrap();
+
+        let mem_usage =
+            IntGaugeVec::new(Opts::new("mem_usage", "Memory usage"), &["memory_type"]).unwrap();
+        let mem_usage_static = MemoryUsageVec::from(&mem_usage);
+        registry.register(Box::new(mem_usage.clone())).unwrap();
+
+        let disk_stats =
+            IntGaugeVec::new(Opts::new("disk_io", "Disk statistics"), &["disk_stats"]).unwrap();
+        let disk_stats_static = DiskStatsVec::from(&mem_usage);
+        registry.register(Box::new(disk_stats.clone())).unwrap();
+
+        let load_avg =
+            GaugeVec::new(Opts::new("load_avg", "Average system load"), &["load_avg"]).unwrap();
+        let load_avg_static = LoadAvgStatsVec::from(&load_avg);
+        registry.register(Box::new(load_avg.clone())).unwrap();
+
+        let socket_stats =
+            IntGaugeVec::new(Opts::new("socket_stats", "Socket stats"), &["socket_stats"]).unwrap();
+        let socket_stats_static = SocketStatsVec::from(&socket_stats);
+        registry.register(Box::new(socket_stats.clone())).unwrap();
+
+        let net_stats =
+            IntGaugeVec::new(Opts::new("net_stats", "Network stats"), &["network_stats"]).unwrap();
+        let network_stats_static = NetworkStatsVec::from(&socket_stats);
+        registry.register(Box::new(net_stats.clone())).unwrap();
 
         Self {
             registry,
@@ -150,7 +266,13 @@ impl Metrics {
             members: members_gauge,
             ms_transcribed,
             total_events: events,
-            avg_audio_process_time,
+            avg_audio_process_time: audio_process,
+            cpu_usage: cpu_usage_static,
+            mem_usage: mem_usage_static,
+            disk_stats: disk_stats_static,
+            socket_stats: socket_stats_static,
+            network_stats: network_stats_static,
+            load_avg_stats: load_avg_static,
         }
     }
 
