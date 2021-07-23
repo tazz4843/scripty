@@ -1,6 +1,8 @@
 #![feature(once_cell)]
 #![feature(option_result_unwrap_unchecked)]
 
+mod background_updater;
+
 /// Code used from sushiibot
 /// https://raw.githubusercontent.com/sushiibot/sushii-2/888fbcdaecc0838e5c3735a5aac677a2d327ef10/src/model/metrics.rs
 use chrono::{naive::NaiveDateTime, offset::Utc};
