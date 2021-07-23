@@ -273,7 +273,7 @@ impl Metrics {
 
         let net_stats =
             IntGaugeVec::new(Opts::new("net_stats", "Network stats"), &["network_stats"]).unwrap();
-        let network_stats_static = NetworkStatsVec::from(&socket_stats);
+        let network_stats_static = NetworkStatsVec::from(&net_stats);
         registry.register(Box::new(net_stats.clone())).unwrap();
 
         let cpu_temp = Gauge::new("cpu_temp", "CPU temperature").unwrap();
