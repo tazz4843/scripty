@@ -11,5 +11,5 @@ rocket = { git = "https://github.com/SergioBenitez/Rocket", rev = "f1ecb79" }
 scripty_metrics = { path = "../scripty_metrics" }
 
 [dependencies.tokio]
-version = "1.7"
+version = "1.8"
 features = ["full"]

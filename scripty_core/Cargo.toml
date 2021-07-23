@@ -29,5 +29,5 @@ branch = "current"
 features = ["client", "standard_framework", "voice", "rustls_backend", "framework", "cache", "collector", "unstable_discord_api"]
 
 [dependencies.tokio]
-version = "1.7"
+version = "1.8"
 features = ["full"]

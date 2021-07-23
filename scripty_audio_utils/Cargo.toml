@@ -12,5 +12,5 @@ deepspeech = "0.9"
 scripty_config = { path = "../scripty_config" }
 
 [dependencies.tokio]
-version = "1.7"
+version = "1.8"
 features = ["full"]
