@@ -1,3 +1,4 @@
+use dashmap::{DashMap, DashSet};
 use scripty_audio_utils::{load_model, run_stt, Model};
 use scripty_metrics::Metrics;
 use serenity::{async_trait, model::webhook::Webhook, prelude::Context};
@@ -23,7 +24,7 @@ fn do_check(user_id: &UserId, active_users: &std::sync::RwLockReadGuard<BTreeSet
 
 #[derive(Clone)]
 pub struct Receiver {
-    ssrc_map: Arc<RwLock<HashMap<u32, UserId>>>,
+    ssrc_map: Arc<DashMap<u32, UserId>>,
     audio_buffer: Arc<RwLock<HashMap<u32, Vec<i16>>>>,
     active_users: Arc<RwLock<BTreeSet<UserId>>>,
     next_users: Arc<RwLock<BTreeSet<UserId>>>,
@@ -108,13 +109,7 @@ impl VoiceEventHandler for Receiver {
                     return None;
                 }
 
-                {
-                    let mut map = self
-                        .ssrc_map
-                        .write()
-                        .expect("thread panicked while holding SSRC map lock");
-                    map.insert(*ssrc, *user_id);
-                }
+                self.ssrc_map.insert(*ssrc, *user_id);
                 let mut audio_buf = self
                     .audio_buffer
                     .write()
@@ -122,15 +117,9 @@ impl VoiceEventHandler for Receiver {
                 audio_buf.insert(*ssrc, Vec::new());
             }
             EventContext::SpeakingUpdate { ssrc, speaking } => {
-                let uid: u64 = {
-                    let map = self
-                        .ssrc_map
-                        .read()
-                        .expect("thread panicked while holding SSRC map lock");
-                    match map.get(ssrc) {
-                        Some(u) => u.0,
-                        None => 0,
-                    }
+                let uid: u64 = match self.ssrc_map.get(ssrc) {
+                    Some(u) => u.0,
+                    None => 0,
                 };
                 if !do_check(
                     &UserId(uid),
@@ -211,15 +200,9 @@ impl VoiceEventHandler for Receiver {
                     metrics.ms_transcribed.inc_by(20);
                 }
 
-                let uid = {
-                    let map = self
-                        .ssrc_map
-                        .read()
-                        .expect("thread panicked while holding audio buffer lock");
-                    match map.get(&packet.ssrc) {
-                        Some(u) => *u,
-                        None => return None,
-                    }
+                let uid = match self.ssrc_map.get(&packet.ssrc) {
+                    Some(u) => *u,
+                    None => return None,
                 };
 
                 if !do_check(
@@ -250,13 +233,7 @@ impl VoiceEventHandler for Receiver {
                 user_id,
                 ..
             }) => {
-                {
-                    let mut map = self
-                        .ssrc_map
-                        .write()
-                        .expect("thread panicked while holding SSRC map lock");
-                    map.insert(*audio_ssrc, *user_id);
-                }
+                self.ssrc_map.insert(*audio_ssrc, *user_id);
                 {
                     let mut active_users = self
                         .active_users
@@ -274,20 +251,13 @@ impl VoiceEventHandler for Receiver {
                 }
             }
             EventContext::ClientDisconnect(ClientDisconnect { user_id, .. }) => {
-                if let Some(u) = {
-                    let map = self
-                        .ssrc_map
-                        .read()
-                        .expect("thread panicked while holding SSRC map lock");
-                    let mut id: Option<u32> = None;
-                    for i in map.iter() {
-                        if i.1 == user_id {
-                            id = Some(*i.0);
-                            break;
-                        }
+                if let Some(u) = self.ssrc_map.iter().find_map(|i| {
+                    if i.value() == user_id {
+                        Some(*i.key())
+                    } else {
+                        None
                     }
-                    id
-                } {
+                }) {
                     {
                         let mut audio_buf = self
                             .audio_buffer
@@ -295,13 +265,7 @@ impl VoiceEventHandler for Receiver {
                             .expect("thread panicked while holding audio buffer lock");
                         audio_buf.remove(&u);
                     }
-                    {
-                        let mut map = self
-                            .ssrc_map
-                            .write()
-                            .expect("thread panicked while holding SSRC map lock");
-                        map.remove(&u);
-                    }
+                    self.ssrc_map.remove(&u);
                     {
                         let mut active_users = self
                             .active_users
