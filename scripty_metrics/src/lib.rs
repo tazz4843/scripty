@@ -258,7 +258,7 @@ impl Metrics {
 
         let block_stats =
             IntGaugeVec::new(Opts::new("block_io", "Block statistics"), &["disk_stats"]).unwrap();
-        let block_stats_static = BlockStatsVec::from(&mem_usage);
+        let block_stats_static = BlockStatsVec::from(&block_stats);
         registry.register(Box::new(block_stats.clone())).unwrap();
 
         let load_avg =
