@@ -1,4 +1,5 @@
 use scripty_audio::auto_join;
+use scripty_metrics::spawn_updater_task;
 use scripty_utils::START_TIME;
 use serenity::model::interactions::InteractionType;
 use serenity::model::prelude::{Interaction, InteractionResponseType};
@@ -38,6 +39,8 @@ impl EventHandler for Handler {
                     .expect("System clock rolled back!")
                     .as_millis()
             );
+
+            spawn_updater_task();
 
             let ctx1 = Arc::clone(&ctx);
             let ctx2 = Arc::clone(&ctx);
