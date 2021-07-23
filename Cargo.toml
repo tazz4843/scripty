@@ -26,7 +26,7 @@ members = [
 ]
 
 [dependencies]
-scripty_core = { path = "scripty_core/" }
+scripty_core = { path = "scripty_core" }
 
 tracing = "0.1"
 
