@@ -15,8 +15,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 use tokio::task;
-#[allow(unused_imports)]
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, trace, warn};
 
 fn do_check(user_id: &UserId, active_users: &std::sync::RwLockReadGuard<BTreeSet<UserId>>) -> bool {
     active_users.get(user_id).is_none()
@@ -190,15 +189,7 @@ impl VoiceEventHandler for Receiver {
             } => {
                 // this code needs to be insanely optimized
                 // so we're trying to do stuff with as little overhead as possible
-                {
-                    let client_data = self.context.data.read().await;
-                    let metrics = client_data
-                        .get::<Metrics>()
-                        .unwrap_or_else(|| unsafe { unreachable_unchecked() });
-                    // 20ms audio packet: if it isn't 20 but rather 30 oh well too bad, it's only 10ms we lose
-                    // anything else shouldn't ever happen
-                    metrics.ms_transcribed.inc_by(20);
-                }
+                let st = std::time::Instant::now();
 
                 let uid = match self.ssrc_map.get(&packet.ssrc) {
                     Some(u) => *u,
@@ -225,6 +216,22 @@ impl VoiceEventHandler for Receiver {
                         None => return None,
                     };
                     b.extend(audio);
+                }
+
+                let et = std::time::Instant::now();
+                {
+                    let client_data = self.context.data.read().await;
+                    let metrics = client_data
+                        .get::<Metrics>()
+                        .unwrap_or_else(|| unsafe { unreachable_unchecked() });
+                    // 20ms audio packet: if it isn't 20 but rather 30 oh well too bad, it's only 10ms we lose
+                    // anything else shouldn't ever happen
+                    metrics.ms_transcribed.inc_by(20);
+                    metrics.avg_audio_process_time.add(
+                        (et.duration_since(st).as_nanos() as i64
+                            + metrics.avg_audio_process_time.get())
+                            / 2,
+                    );
                 }
             }
             EventContext::ClientConnect(ClientConnect {

@@ -102,6 +102,7 @@ pub struct Metrics {
     pub members: IntGauge,
     pub ms_transcribed: IntCounter,
     pub total_events: IntCounter,
+    pub avg_audio_process_time: IntGauge,
 }
 
 #[allow(clippy::new_without_default)]
@@ -123,6 +124,12 @@ impl Metrics {
 
         let events = IntCounter::new("total_events", "Total gateway events").unwrap();
 
+        let avg_audio_process_time = IntCounter::new(
+            "avg_audio_process_time",
+            "Average time to process one audio packet. Includes bots.",
+        )
+        .unwrap();
+
         let registry = Registry::new_custom(Some("scripty".into()), None).unwrap();
         registry.register(Box::new(messages_vec)).unwrap();
         registry.register(Box::new(events_vec)).unwrap();
@@ -130,6 +137,9 @@ impl Metrics {
         registry.register(Box::new(members_gauge.clone())).unwrap();
         registry.register(Box::new(ms_transcribed.clone())).unwrap();
         registry.register(Box::new(events.clone())).unwrap();
+        registry
+            .register(Box::new(avg_audio_process_time.clone()))
+            .unwrap();
 
         Self {
             registry,
@@ -140,6 +150,7 @@ impl Metrics {
             members: members_gauge,
             ms_transcribed,
             total_events: events,
+            avg_audio_process_time,
         }
     }
 
