@@ -9,6 +9,7 @@ edition = "2018"
 tracing = "0.1"
 tracing-subscriber = "0.2"
 songbird = "0.1"
+tracing-log = "0.1.2"
 
 scripty_config = { path = "../scripty_config" }
 scripty_commands = { path = "../scripty_commands" }

@@ -27,8 +27,11 @@ use std::{
 };
 use tokio::sync::RwLock;
 use tracing::{error, info, subscriber::set_global_default};
+use tracing_log::LogTracer;
 
 pub async fn entrypoint() {
+    LogTracer::init().expect("failed to hook into `log` crate");
+
     let sub = tracing_subscriber::fmt().with_level(true).finish();
     set_global_default(sub).expect("failed to set global default logger");
 
