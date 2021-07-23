@@ -17,7 +17,7 @@ use std::{
 use tokio::task;
 use tracing::{debug, error, trace};
 
-fn do_check(user_id: &UserId, active_users: &std::sync::RwLockReadGuard<BTreeSet<UserId>>) -> bool {
+fn do_check(user_id: &UserId, active_users: &DashSet<UserId>) -> bool {
     active_users.get(user_id).is_none()
 }
 
@@ -25,7 +25,7 @@ fn do_check(user_id: &UserId, active_users: &std::sync::RwLockReadGuard<BTreeSet
 pub struct Receiver {
     ssrc_map: Arc<DashMap<u32, UserId>>,
     audio_buffer: Arc<DashMap<u32, Vec<i16>>>,
-    active_users: Arc<RwLock<BTreeSet<UserId>>>,
+    active_users: Arc<DashSet<UserId>>,
     next_users: Arc<RwLock<BTreeSet<UserId>>>,
     webhook: Arc<Webhook>,
     context: Arc<Context>,
@@ -66,7 +66,7 @@ impl Receiver {
         let ssrc_map = Arc::new(DashMap::new());
         let audio_buffer = Arc::new(DashMap::new());
         let webhook = Arc::new(webhook);
-        let active_users = Arc::new(RwLock::new(BTreeSet::new()));
+        let active_users = Arc::new(DashSet::new());
         let next_users = Arc::new(RwLock::new(BTreeSet::new()));
         let ds_model = Arc::new(std::sync::RwLock::new(load_model()));
         Self {
@@ -98,13 +98,7 @@ impl VoiceEventHandler for Receiver {
                 user_id: Some(user_id),
                 ..
             }) => {
-                if !do_check(
-                    user_id,
-                    &self
-                        .active_users
-                        .read()
-                        .expect("thread panicked while holding active user lock"),
-                ) {
+                if !do_check(user_id, &self.active_users) {
                     return None;
                 }
 
@@ -116,13 +110,7 @@ impl VoiceEventHandler for Receiver {
                     Some(u) => u.0,
                     None => 0,
                 };
-                if !do_check(
-                    &UserId(uid),
-                    &self
-                        .active_users
-                        .read()
-                        .expect("thread panicked while holding active user lock"),
-                ) {
+                if !do_check(&UserId(uid), &self.active_users) {
                     return None;
                 };
 
@@ -186,13 +174,7 @@ impl VoiceEventHandler for Receiver {
                     None => return None,
                 };
 
-                if !do_check(
-                    &uid,
-                    &self
-                        .active_users
-                        .read()
-                        .expect("thread panicked while holding active user lock"),
-                ) {
+                if !do_check(&uid, &self.active_users) {
                     return None;
                 };
 
@@ -226,18 +208,14 @@ impl VoiceEventHandler for Receiver {
             }) => {
                 self.ssrc_map.insert(*audio_ssrc, *user_id);
                 {
-                    let mut active_users = self
-                        .active_users
-                        .write()
-                        .expect("thread panicked while holding active user lock");
-                    if active_users.len() >= self.max_users as usize {
+                    if self.active_users.len() >= self.max_users as usize {
                         let mut next_users = self
                             .next_users
                             .write()
                             .expect("thread panicked while holding next user lock");
                         next_users.insert(*user_id);
                     } else {
-                        active_users.insert(*user_id);
+                        self.active_users.insert(*user_id);
                     };
                 }
             }
@@ -252,17 +230,13 @@ impl VoiceEventHandler for Receiver {
                     self.audio_buffer.remove(&u);
                     self.ssrc_map.remove(&u);
                     {
-                        let mut active_users = self
-                            .active_users
-                            .write()
-                            .expect("thread panicked while holding active user lock");
-                        active_users.remove(user_id);
+                        self.active_users.remove(user_id);
                         let mut next_users = self
                             .next_users
                             .write()
                             .expect("thread panicked while holding next user lock");
                         if let Some(user) = next_users.pop_first() {
-                            active_users.insert(user);
+                            self.active_users.insert(user);
                         };
                     }
                 };
