@@ -15,7 +15,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 use tokio::task;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, trace};
 
 fn do_check(user_id: &UserId, active_users: &std::sync::RwLockReadGuard<BTreeSet<UserId>>) -> bool {
     active_users.get(user_id).is_none()

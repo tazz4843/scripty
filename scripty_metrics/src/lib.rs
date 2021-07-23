@@ -124,7 +124,7 @@ impl Metrics {
 
         let events = IntCounter::new("total_events", "Total gateway events").unwrap();
 
-        let avg_audio_process_time = IntCounter::new(
+        let avg_audio_process_time = IntGauge::new(
             "avg_audio_process_time",
             "Average time to process one audio packet. Includes bots.",
         )
