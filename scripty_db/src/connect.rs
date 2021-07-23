@@ -10,12 +10,8 @@ pub async fn set_db() -> Pool<Postgres> {
     let config = BotConfig::get().expect("Couldn't get BOT_CONFIG to get the database file");
     let (db_user, db_password, db_db) = config.db_login();
     db_conn_options = match config.db_connection() {
-        DatabaseConnection::TcpSocket(host, port) => {
-            db_conn_options.host(host.as_str()).port(port)
-        }
-        DatabaseConnection::UnixSocket(path) => {
-            db_conn_options.socket(PathBuf::from(path))
-        }
+        DatabaseConnection::TcpSocket(host, port) => db_conn_options.host(host.as_str()).port(port),
+        DatabaseConnection::UnixSocket(path) => db_conn_options.socket(PathBuf::from(path)),
     };
 
     let db = PgPool::connect_with(
