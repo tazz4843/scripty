@@ -1,10 +1,6 @@
 use scripty_audio_utils::{load_model, run_stt, Model};
 use scripty_metrics::Metrics;
-use serenity::{
-    async_trait,
-    model::webhook::Webhook,
-    prelude::{Context, RwLock},
-};
+use serenity::{async_trait, model::webhook::Webhook, prelude::Context};
 use songbird::{
     model::{
         id::UserId,
@@ -15,16 +11,13 @@ use songbird::{
 use std::{
     collections::{BTreeSet, HashMap},
     hint::unreachable_unchecked,
-    sync::Arc,
+    sync::{Arc, RwLock},
 };
 use tokio::task;
 #[allow(unused_imports)]
 use tracing::{debug, error, info, trace, warn};
 
-fn do_check(
-    user_id: &UserId,
-    active_users: &tokio::sync::RwLockReadGuard<BTreeSet<UserId>>,
-) -> bool {
+fn do_check(user_id: &UserId, active_users: &std::sync::RwLockReadGuard<BTreeSet<UserId>>) -> bool {
     active_users.get(user_id).is_none()
 }
 
@@ -105,32 +98,56 @@ impl VoiceEventHandler for Receiver {
                 user_id: Some(user_id),
                 ..
             }) => {
-                if !do_check(user_id, &self.active_users.read().await) {
+                if !do_check(
+                    user_id,
+                    &self
+                        .active_users
+                        .read()
+                        .expect("thread panicked while holding active user lock"),
+                ) {
                     return None;
                 }
 
                 {
-                    let mut map = self.ssrc_map.write().await;
+                    let mut map = self
+                        .ssrc_map
+                        .write()
+                        .expect("thread panicked while holding SSRC map lock");
                     map.insert(*ssrc, *user_id);
                 }
-                let mut audio_buf = self.audio_buffer.write().await;
+                let mut audio_buf = self
+                    .audio_buffer
+                    .write()
+                    .expect("thread panicked while holding audio buffer lock");
                 audio_buf.insert(*ssrc, Vec::new());
             }
             EventContext::SpeakingUpdate { ssrc, speaking } => {
                 let uid: u64 = {
-                    let map = self.ssrc_map.read().await;
+                    let map = self
+                        .ssrc_map
+                        .read()
+                        .expect("thread panicked while holding SSRC map lock");
                     match map.get(ssrc) {
                         Some(u) => u.0,
                         None => 0,
                     }
                 };
-                if !do_check(&UserId(uid), &self.active_users.read().await) {
+                if !do_check(
+                    &UserId(uid),
+                    &self
+                        .active_users
+                        .read()
+                        .expect("thread panicked while holding active user lock"),
+                ) {
                     return None;
                 };
 
                 if !*speaking {
                     let audio = {
-                        let mut buf = self.audio_buffer.write().await;
+                        let mut buf = self
+                            .audio_buffer
+                            .write()
+                            .expect("thread panicked while holding audio buffer lock");
                         match buf.get_mut(ssrc) {
                             Some(a) => {
                                 let res = a.clone();
@@ -195,19 +212,31 @@ impl VoiceEventHandler for Receiver {
                 }
 
                 let uid = {
-                    let map = self.ssrc_map.read().await;
+                    let map = self
+                        .ssrc_map
+                        .read()
+                        .expect("thread panicked while holding audio buffer lock");
                     match map.get(&packet.ssrc) {
                         Some(u) => *u,
                         None => return None,
                     }
                 };
 
-                if !do_check(&uid, &self.active_users.read().await) {
+                if !do_check(
+                    &uid,
+                    &self
+                        .active_users
+                        .read()
+                        .expect("thread panicked while holding active user lock"),
+                ) {
                     return None;
                 };
 
                 if let Some(audio) = audio {
-                    let mut buf = self.audio_buffer.write().await;
+                    let mut buf = self
+                        .audio_buffer
+                        .write()
+                        .expect("thread panicked while holding audio buffer lock");
                     let b = match buf.get_mut(&packet.ssrc) {
                         Some(b) => b,
                         None => return None,
@@ -222,13 +251,22 @@ impl VoiceEventHandler for Receiver {
                 ..
             }) => {
                 {
-                    let mut map = self.ssrc_map.write().await;
+                    let mut map = self
+                        .ssrc_map
+                        .write()
+                        .expect("thread panicked while holding SSRC map lock");
                     map.insert(*audio_ssrc, *user_id);
                 }
                 {
-                    let mut active_users = self.active_users.write().await;
-                    if active_users.len() > self.max_users as usize {
-                        let mut next_users = self.next_users.write().await;
+                    let mut active_users = self
+                        .active_users
+                        .write()
+                        .expect("thread panicked while holding active user lock");
+                    if active_users.len() >= self.max_users as usize {
+                        let mut next_users = self
+                            .next_users
+                            .write()
+                            .expect("thread panicked while holding next user lock");
                         next_users.insert(*user_id);
                     } else {
                         active_users.insert(*user_id);
@@ -237,7 +275,10 @@ impl VoiceEventHandler for Receiver {
             }
             EventContext::ClientDisconnect(ClientDisconnect { user_id, .. }) => {
                 if let Some(u) = {
-                    let map = self.ssrc_map.read().await;
+                    let map = self
+                        .ssrc_map
+                        .read()
+                        .expect("thread panicked while holding SSRC map lock");
                     let mut id: Option<u32> = None;
                     for i in map.iter() {
                         if i.1 == user_id {
@@ -248,17 +289,29 @@ impl VoiceEventHandler for Receiver {
                     id
                 } {
                     {
-                        let mut audio_buf = self.audio_buffer.write().await;
+                        let mut audio_buf = self
+                            .audio_buffer
+                            .write()
+                            .expect("thread panicked while holding audio buffer lock");
                         audio_buf.remove(&u);
                     }
                     {
-                        let mut map = self.ssrc_map.write().await;
+                        let mut map = self
+                            .ssrc_map
+                            .write()
+                            .expect("thread panicked while holding SSRC map lock");
                         map.remove(&u);
                     }
                     {
-                        let mut active_users = self.active_users.write().await;
+                        let mut active_users = self
+                            .active_users
+                            .write()
+                            .expect("thread panicked while holding active user lock");
                         active_users.remove(user_id);
-                        let mut next_users = self.next_users.write().await;
+                        let mut next_users = self
+                            .next_users
+                            .write()
+                            .expect("thread panicked while holding next user lock");
                         if let Some(user) = next_users.pop_first() {
                             active_users.insert(user);
                         };
