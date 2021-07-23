@@ -192,7 +192,7 @@ impl VoiceEventHandler for Receiver {
                     // 20ms audio packet: if it isn't 20 but rather 30 oh well too bad, it's only 10ms we lose
                     // anything else shouldn't ever happen
                     metrics.ms_transcribed.inc_by(20);
-                    metrics.avg_audio_process_time.add(
+                    metrics.avg_audio_process_time.set(
                         (et.duration_since(st).as_nanos() as i64
                             + metrics.avg_audio_process_time.get())
                             / 2,
