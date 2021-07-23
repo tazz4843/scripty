@@ -10,7 +10,7 @@ use songbird::{
     Event, EventContext, EventHandler as VoiceEventHandler,
 };
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::BTreeSet,
     hint::unreachable_unchecked,
     sync::{Arc, RwLock},
 };
@@ -24,7 +24,7 @@ fn do_check(user_id: &UserId, active_users: &std::sync::RwLockReadGuard<BTreeSet
 #[derive(Clone)]
 pub struct Receiver {
     ssrc_map: Arc<DashMap<u32, UserId>>,
-    audio_buffer: Arc<RwLock<HashMap<u32, Vec<i16>>>>,
+    audio_buffer: Arc<DashMap<u32, Vec<i16>>>,
     active_users: Arc<RwLock<BTreeSet<UserId>>>,
     next_users: Arc<RwLock<BTreeSet<UserId>>>,
     webhook: Arc<Webhook>,
@@ -64,7 +64,7 @@ impl Receiver {
         };
 
         let ssrc_map = Arc::new(DashMap::new());
-        let audio_buffer = Arc::new(RwLock::new(HashMap::new()));
+        let audio_buffer = Arc::new(DashMap::new());
         let webhook = Arc::new(webhook);
         let active_users = Arc::new(RwLock::new(BTreeSet::new()));
         let next_users = Arc::new(RwLock::new(BTreeSet::new()));
@@ -109,11 +109,7 @@ impl VoiceEventHandler for Receiver {
                 }
 
                 self.ssrc_map.insert(*ssrc, *user_id);
-                let mut audio_buf = self
-                    .audio_buffer
-                    .write()
-                    .expect("thread panicked while holding audio buffer lock");
-                audio_buf.insert(*ssrc, Vec::new());
+                self.audio_buffer.insert(*ssrc, Vec::new());
             }
             EventContext::SpeakingUpdate { ssrc, speaking } => {
                 let uid: u64 = match self.ssrc_map.get(ssrc) {
@@ -131,19 +127,13 @@ impl VoiceEventHandler for Receiver {
                 };
 
                 if !*speaking {
-                    let audio = {
-                        let mut buf = self
-                            .audio_buffer
-                            .write()
-                            .expect("thread panicked while holding audio buffer lock");
-                        match buf.get_mut(ssrc) {
-                            Some(a) => {
-                                let res = a.clone();
-                                a.clear();
-                                res
-                            }
-                            None => return None,
+                    let audio = match self.audio_buffer.get_mut(ssrc) {
+                        Some(mut a) => {
+                            let res = a.clone();
+                            a.clear();
+                            res
                         }
+                        None => return None,
                     };
 
                     let u = match self.context.cache.user(uid).await {
@@ -207,15 +197,9 @@ impl VoiceEventHandler for Receiver {
                 };
 
                 if let Some(audio) = audio {
-                    let mut buf = self
-                        .audio_buffer
-                        .write()
-                        .expect("thread panicked while holding audio buffer lock");
-                    let b = match buf.get_mut(&packet.ssrc) {
-                        Some(b) => b,
-                        None => return None,
+                    if let Some(mut b) = self.audio_buffer.get_mut(&packet.ssrc) {
+                        b.extend(audio)
                     };
-                    b.extend(audio);
                 }
 
                 let et = std::time::Instant::now();
@@ -265,13 +249,7 @@ impl VoiceEventHandler for Receiver {
                         None
                     }
                 }) {
-                    {
-                        let mut audio_buf = self
-                            .audio_buffer
-                            .write()
-                            .expect("thread panicked while holding audio buffer lock");
-                        audio_buf.remove(&u);
-                    }
+                    self.audio_buffer.remove(&u);
                     self.ssrc_map.remove(&u);
                     {
                         let mut active_users = self
