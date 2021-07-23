@@ -10,7 +10,6 @@ use songbird::{
     Event, EventContext, EventHandler as VoiceEventHandler,
 };
 use std::{
-    collections::BTreeSet,
     hint::unreachable_unchecked,
     sync::{Arc, RwLock},
 };
@@ -26,7 +25,7 @@ pub struct Receiver {
     ssrc_map: Arc<DashMap<u32, UserId>>,
     audio_buffer: Arc<DashMap<u32, Vec<i16>>>,
     active_users: Arc<DashSet<UserId>>,
-    next_users: Arc<RwLock<BTreeSet<UserId>>>,
+    next_users: Arc<RwLock<Vec<UserId>>>,
     webhook: Arc<Webhook>,
     context: Arc<Context>,
     premium_level: u8,
@@ -67,7 +66,7 @@ impl Receiver {
         let audio_buffer = Arc::new(DashMap::new());
         let webhook = Arc::new(webhook);
         let active_users = Arc::new(DashSet::new());
-        let next_users = Arc::new(RwLock::new(BTreeSet::new()));
+        let next_users = Arc::new(RwLock::new(Vec::new()));
         let ds_model = Arc::new(std::sync::RwLock::new(load_model()));
         Self {
             ssrc_map,
@@ -213,7 +212,7 @@ impl VoiceEventHandler for Receiver {
                             .next_users
                             .write()
                             .expect("thread panicked while holding next user lock");
-                        next_users.insert(*user_id);
+                        next_users.push(*user_id);
                     } else {
                         self.active_users.insert(*user_id);
                     };
@@ -235,7 +234,7 @@ impl VoiceEventHandler for Receiver {
                             .next_users
                             .write()
                             .expect("thread panicked while holding next user lock");
-                        if let Some(user) = next_users.pop_first() {
+                        if let Some(user) = next_users.pop() {
                             self.active_users.insert(user);
                         };
                     }
