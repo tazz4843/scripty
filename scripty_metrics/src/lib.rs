@@ -29,14 +29,6 @@ make_static_metric! {
     }
 
     pub label_enum MemoryUsageType {
-        active,
-        active_anon,
-        active_file,
-        buffer,
-        cache,
-        inactive,
-        inactive_anon,
-        inactive_file,
         available,
         free,
         total,
