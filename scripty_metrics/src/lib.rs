@@ -5,7 +5,7 @@
 /// https://raw.githubusercontent.com/sushiibot/sushii-2/888fbcdaecc0838e5c3735a5aac677a2d327ef10/src/model/metrics.rs
 use chrono::{naive::NaiveDateTime, offset::Utc};
 use prometheus::{
-    Encoder, GaugeVec, IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry,
+    Encoder, Gauge, GaugeVec, IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry,
     TextEncoder,
 };
 use prometheus_static_metric::make_static_metric;
@@ -209,6 +209,7 @@ pub struct Metrics {
     pub socket_stats: SocketStatsVec,
     pub network_stats: NetworkStatsVec,
     pub load_avg_stats: LoadAvgStatsVec,
+    pub cpu_temp: Gauge,
 }
 
 #[allow(clippy::new_without_default)]
@@ -275,6 +276,9 @@ impl Metrics {
         let network_stats_static = NetworkStatsVec::from(&socket_stats);
         registry.register(Box::new(net_stats.clone())).unwrap();
 
+        let cpu_temp = Gauge::new("cpu_temp", "CPU temperature").unwrap();
+        registry.register(Box::new(cpu_temp.clone())).unwrap();
+
         Self {
             registry,
             start_time: Utc::now().naive_utc(),
@@ -291,6 +295,7 @@ impl Metrics {
             socket_stats: socket_stats_static,
             network_stats: network_stats_static,
             load_avg_stats: load_avg_static,
+            cpu_temp,
         }
     }
 
