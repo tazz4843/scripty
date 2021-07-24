@@ -118,6 +118,7 @@ pub async fn entrypoint() {
                 .limit(10)
         })
         .await
+        .before(scripty_metrics::before_hook)
         .help(&CMD_HELP)
         .group(&GENERAL_GROUP)
         .group(&UTILS_GROUP)

@@ -2,7 +2,10 @@
 #![feature(option_result_unwrap_unchecked)]
 
 mod background_updater;
+mod command_run_hook;
+
 pub use background_updater::spawn_updater_task;
+pub use command_run_hook::before_hook;
 
 /// Code used from sushiibot
 /// https://raw.githubusercontent.com/sushiibot/sushii-2/888fbcdaecc0838e5c3735a5aac677a2d327ef10/src/model/metrics.rs
