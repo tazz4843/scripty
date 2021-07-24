@@ -310,8 +310,11 @@ impl Metrics {
             .register(Box::new(total_commands_used.clone()))
             .unwrap();
 
-        let commands_used =
-            IntCounterVec::new(Opts::new("commands_used", "Commands used"), &["commands"]).unwrap();
+        let commands_used = IntCounterVec::new(
+            Opts::new("commands_used", "Commands used"),
+            &["command_name"],
+        )
+        .unwrap();
         let commands_used_static = CommandsUsedVec::from(&commands_used);
         registry.register(Box::new(commands_used.clone())).unwrap();
 
