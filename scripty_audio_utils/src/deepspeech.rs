@@ -1,4 +1,4 @@
-use deepspeech::{errors::DeepspeechError, Model as DsModel};
+use deepspeech::{errors::DeepspeechError, Metadata, Model as DsModel};
 use scripty_config::BotConfig;
 use std::{
     path::Path,
@@ -13,9 +13,7 @@ pub struct Model {
     ds_model: DsModel,
 }
 
-// note: these two impls are here not because they've been tested, but rather because
-// they haven't broken anything yet
-// if shit breaks we'll see
+// these two impls SHOULD
 unsafe impl Send for Model {}
 unsafe impl Sync for Model {}
 
@@ -26,8 +24,15 @@ impl Model {
         }
     }
 
-    pub fn speech_to_text(&mut self, buffer: &[i16]) -> Result<String, DeepspeechError> {
+    pub fn speech_to_text(&self, buffer: &[i16]) -> Result<String, DeepspeechError> {
         self.ds_model.speech_to_text(buffer)
+    }
+
+    pub fn speech_to_text_with_metadata(
+        &self,
+        buffer: &[i16],
+    ) -> Result<Metadata, DeepspeechError> {
+        self.ds_model.speech_to_text_with_metadata(buffer, 1)
     }
 
     pub fn enable_external_scorer(&mut self, scorer_path: &Path) -> Result<(), DeepspeechError> {
@@ -71,7 +76,7 @@ pub fn load_model() -> Model {
 pub async fn run_stt(
     input_data: Vec<i16>,
     m: Arc<RwLock<Model>>,
-) -> Result<String, DeepspeechError> {
+) -> Result<Metadata, DeepspeechError> {
     tokio::task::spawn_blocking(move || {
         // Start off by converting from stereo audio to mono.
         let input_data = super::stereo_to_mono(input_data);
@@ -81,12 +86,12 @@ pub async fn run_stt(
 
         // load the model from the Arc<RwLock<Model>> passed in
         // and panic if any other thread panicked while trying to load the model too
-        let mut model = m
-            .write()
+        let model = m
+            .read()
             .expect("a thread panicked while trying to load the model");
 
         // and finally run the actual speech to text algorithm
-        model.speech_to_text(&audio_buf)
+        model.speech_to_text_with_metadata(&audio_buf)
     })
     .await
     .expect("Failed to spawn blocking!")

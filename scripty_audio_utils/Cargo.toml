@@ -8,7 +8,7 @@ edition = "2018"
 [dependencies]
 dasp_interpolate = { version = "*", features = ["linear"] }
 dasp_signal = "*"
-deepspeech = "0.9"
+deepspeech = { path = "../../deepspeech-rs" }
 scripty_config = { path = "../scripty_config" }
 
 [dependencies.tokio]
