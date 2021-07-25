@@ -1,6 +1,8 @@
 use dashmap::{DashMap, DashSet};
 use scripty_audio_utils::{load_model, run_stt, Model};
-use scripty_metrics::Metrics;
+use scripty_metrics::{Metrics, METRICS};
+use serenity::builder::ExecuteWebhook;
+use serenity::model::prelude::Embed;
 use serenity::{async_trait, model::webhook::Webhook, prelude::Context};
 use songbird::{
     model::{
@@ -14,7 +16,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 use tokio::task;
-use tracing::{debug, error, trace};
+use tracing::{debug, error, trace, warn};
 
 fn do_check(user_id: &UserId, active_users: &DashSet<UserId>) -> bool {
     active_users.get(user_id).is_none()
@@ -133,20 +135,92 @@ impl VoiceEventHandler for Receiver {
                         None => return None,
                     };
 
+                    // these might seem weird, but these are required that way we can spawn the
+                    // task below and move these variables into it without getting lifetime
+                    // errors
                     let webhook = Arc::clone(&self.webhook);
                     let context = Arc::clone(&self.context);
                     let model = Arc::clone(&self.ds_model);
+                    let verbose = self.verbose;
 
                     task::spawn(async move {
                         match run_stt(audio, model).await {
                             Ok(r) => {
-                                if !r.is_empty() {
-                                    let profile_picture = u.face();
-                                    let name = u.name;
+                                let mut has_result = false;
+                                let mut webhook_execute = ExecuteWebhook::default();
+                                if let Some(t) = r.transcripts().first() {
+                                    let mut transcription = String::new();
+                                    let mut err = false;
+                                    let mut audio_length = 0;
+                                    let mut audio_start = 0;
+                                    let tokens = t.tokens();
+                                    let total_tokens = tokens.len() - 1;
+                                    for (i, token) in tokens.iter().enumerate() {
+                                        match token.text() {
+                                            Ok(text) => transcription.push_str(text),
+                                            Err(e) => {
+                                                warn!(
+                                                    "transcription contained invalid UTF-8? {}",
+                                                    e
+                                                );
+                                                if verbose {
+                                                    err = true;
+                                                } else {
+                                                    return;
+                                                }
+                                            }
+                                        };
+                                        if verbose {
+                                            if i == 0 {
+                                                audio_start = token.timestep() * 20
+                                            } else if i == total_tokens {
+                                                audio_length = token.timestep() * 20
+                                            }
+                                        }
+                                    }
+
+                                    if verbose {
+                                        let embed = Embed::fake(|x| {
+                                            x.field("Transcription", transcription, false)
+                                                .field(
+                                                    "Confidence %",
+                                                    t.confidence() * 100.0,
+                                                    false,
+                                                )
+                                                .field("Start Offset (ms)", audio_start, false)
+                                                .field("Length (ms)", audio_length, false)
+                                                .footer(|f| {
+                                                    f.text(format!(
+                                                        "{} possible transcriptions",
+                                                        r.transcripts().len()
+                                                    ))
+                                                });
+                                            if err {
+                                                x.field(
+                                                    "Note",
+                                                    "UTF-8 decoding error was detected",
+                                                    false,
+                                                );
+                                            }
+                                            x
+                                        });
+                                        webhook_execute.embeds(vec![embed]);
+                                    } else {
+                                        webhook_execute.content(transcription);
+                                    }
+                                    has_result = true;
+                                } else if verbose {
+                                    webhook_execute.content("No transcriptions found");
+                                    has_result = true;
+                                }
+
+                                if has_result {
+                                    webhook_execute.avatar_url(u.face()).username(u.name);
 
                                     let _ = webhook
                                         .execute(&context, false, |m| {
-                                            m.avatar_url(profile_picture).content(r).username(name)
+                                            *m = webhook_execute;
+                                            m
                                         })
                                         .await;
                                 }
@@ -186,6 +260,7 @@ impl VoiceEventHandler for Receiver {
                 let et = std::time::Instant::now();
                 {
                     let client_data = self.context.data.read().await;
+                    let m = unsafe { METRICS.get().unwrap_unchecked() };
                     let metrics = client_data
                         .get::<Metrics>()
                         .unwrap_or_else(|| unsafe { unreachable_unchecked() });
