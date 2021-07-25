@@ -1,13 +1,9 @@
-use chrono::Utc;
 use scripty_macros::handle_serenity_error;
-use scripty_metrics::Metrics;
-use scripty_utils::START_TIME;
 use serenity::{
     client::Context,
     framework::standard::{macros::command, CommandResult},
     model::prelude::Message,
 };
-use std::hint::unreachable_unchecked;
 
 #[command("stats")]
 #[bucket = "expensive"]
