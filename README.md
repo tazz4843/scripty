@@ -28,6 +28,10 @@ No support for self-hosting will be given.
 
 Building the bot requires Nightly Rust, with [`libdeepspeech.so`](https://github.com/mozilla/DeepSpeech) in your `LD_LIBRARY_PATH` 
 and `LIBRARY_PATH` environment variables.
+
+You will also need to clone https://github.com/tazz4843/deepspeech-rs and
+point `scripty_audio_utils/Cargo.toml` to the directory where you cloned it
+(this fork adds forced implementations for Send + Sync on all types except one).
 ```bash
 LIBRARY_PATH="/path/to/libdeepspeech/" RUSTFLAGS="-Ctarget-cpu=native" cargo build --release
 ```
