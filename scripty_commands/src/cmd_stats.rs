@@ -6,7 +6,7 @@ use serenity::{
 };
 
 #[command("stats")]
-#[bucket = "expensive"]
+#[aliases("status")]
 #[description = "Live statistics on the bot."]
 async fn cmd_stats(ctx: &Context, msg: &Message) -> CommandResult {
     if let Err(e) = msg

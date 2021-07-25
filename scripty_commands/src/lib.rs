@@ -17,7 +17,6 @@ mod cmd_rejoinall;
 mod cmd_setup;
 mod cmd_shutdown;
 mod cmd_stats;
-mod cmd_status;
 mod cmd_template;
 pub mod groups;
 
@@ -36,7 +35,6 @@ pub use cmd_rejoinall::*;
 pub use cmd_setup::*;
 pub use cmd_shutdown::*;
 pub use cmd_stats::*;
-pub use cmd_status::*;
 pub use groups::*;
 // not a real command
 // pub use cmd_template::*;

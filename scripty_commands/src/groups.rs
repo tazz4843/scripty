@@ -6,7 +6,7 @@ use serenity::framework::standard::macros::group;
 struct General;
 
 #[group("Bot Utils")]
-#[commands(cmd_ping, cmd_status, cmd_credits, cmd_stats)]
+#[commands(cmd_ping, cmd_credits, cmd_stats)]
 struct Utils;
 
 #[group("Voice Commands")]
