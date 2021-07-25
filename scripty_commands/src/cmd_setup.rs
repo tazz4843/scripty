@@ -443,7 +443,14 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
                         old American male. The devs are trying their hardest to fix this, but it's not \
                         easy. If you have a spare (Linux) computer with 3TB of storage and a Nvidia \
                         GPU with at least 8GB VRAM that we can borrow, we would love to hear from you. \
-                        Please get in touch with 0/0 on the support server: https://discord.gg/zero-boats");
+                        Please get in touch with 0/0 on the support server: https://discord.gg/zero-boats")
+                        .field(
+                            "Public Stats",
+                            "Scripty's stats are also public for anyone to view at \
+                            https://stats.imaskeleton.me\nThese stats are quite detailed and show \
+                            almost all info the bot has.",
+                            false
+                        );
                 }
             }
         }
