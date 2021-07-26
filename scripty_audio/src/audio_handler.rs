@@ -1,3 +1,7 @@
+/*
+ * Licensed under the EUPL: see LICENSE.md.
+ */
+
 use dashmap::{DashMap, DashSet};
 use scripty_audio_utils::{load_model, run_stt, Model};
 use scripty_metrics::{Metrics, METRICS};
@@ -181,20 +185,18 @@ impl VoiceEventHandler for Receiver {
 
                                     if verbose {
                                         let embed = Embed::fake(|x| {
-                                            x.field("Transcription", transcription, false)
-                                                .field(
-                                                    "Confidence %",
-                                                    t.confidence() * 100.0,
-                                                    false,
-                                                )
-                                                .field("Start Offset (ms)", audio_start, false)
-                                                .field("Length (ms)", audio_length, false)
-                                                .footer(|f| {
-                                                    f.text(format!(
-                                                        "{} possible transcriptions",
-                                                        r.transcripts().len()
-                                                    ))
-                                                });
+                                            x.description(format!(
+                                                "**Transcription**\n{}\n\n\
+                                                    **Confidence %**\n{}\n\n\
+                                                    **Start Offset (ms)**\n{}\n\n\
+                                                    **Length (ms)**\n{}\n\n\
+                                                    **Total Possiblities**\n{}",
+                                                transcription,
+                                                t.confidence() * 100.0,
+                                                audio_start,
+                                                audio_length,
+                                                r.transcripts().len()
+                                            ));
                                             if err {
                                                 x.field(
                                                     "Note",
