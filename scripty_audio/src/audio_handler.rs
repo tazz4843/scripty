@@ -2,12 +2,13 @@
  * Licensed under the EUPL: see LICENSE.md.
  */
 
-use dashmap::{DashMap, DashSet};
+use ahash::RandomState;
 use scripty_audio_utils::{load_model, run_stt, Model};
 use scripty_metrics::{Metrics, METRICS};
 use serenity::builder::ExecuteWebhook;
 use serenity::model::prelude::Embed;
 use serenity::{async_trait, model::webhook::Webhook, prelude::Context};
+use smallvec::SmallVec;
 use songbird::{
     model::{
         id::UserId,
@@ -16,27 +17,31 @@ use songbird::{
     Event, EventContext, EventHandler as VoiceEventHandler,
 };
 use std::{
-    hint::unreachable_unchecked,
+    collections::{HashMap, HashSet},
     sync::{Arc, RwLock},
 };
 use tokio::task;
 use tracing::{debug, error, trace, warn};
 
-fn do_check(user_id: &UserId, active_users: &DashSet<UserId>) -> bool {
-    active_users.get(user_id).is_none()
+macro_rules! do_check {
+    ($active_users:expr, $user_id:expr) => {
+        if !$active_users.read().ok()?.contains($user_id) {
+            return None;
+        }
+    };
 }
 
 #[derive(Clone)]
 pub struct Receiver {
-    ssrc_map: Arc<DashMap<u32, UserId>>,
-    audio_buffer: Arc<DashMap<u32, Vec<i16>>>,
-    active_users: Arc<DashSet<UserId>>,
-    next_users: Arc<RwLock<Vec<UserId>>>,
+    ssrc_map: Arc<RwLock<HashMap<u32, UserId, RandomState>>>,
+    audio_buffer: Arc<RwLock<HashMap<u32, Vec<i16>, RandomState>>>,
+    active_users: Arc<RwLock<HashSet<UserId, RandomState>>>,
+    next_users: Arc<RwLock<SmallVec<[UserId; 10]>>>, // 10 should be fine
     webhook: Arc<Webhook>,
     context: Arc<Context>,
     premium_level: u8,
     max_users: u16, // seriously if it hits 65535 users in a VC wtf
-    ds_model: Arc<std::sync::RwLock<Model>>,
+    ds_model: Arc<RwLock<Model>>,
     verbose: bool,
 }
 
@@ -68,12 +73,12 @@ impl Receiver {
             trace!("constructing new receiver for unknown guild");
         };
 
-        let ssrc_map = Arc::new(DashMap::new());
-        let audio_buffer = Arc::new(DashMap::new());
+        let ssrc_map = Arc::new(RwLock::new(HashMap::with_hasher(ahash::RandomState::new())));
+        let audio_buffer = Arc::new(RwLock::new(HashMap::with_hasher(ahash::RandomState::new())));
         let webhook = Arc::new(webhook);
-        let active_users = Arc::new(DashSet::new());
-        let next_users = Arc::new(RwLock::new(Vec::new()));
-        let ds_model = Arc::new(std::sync::RwLock::new(load_model()));
+        let active_users = Arc::new(RwLock::new(HashSet::with_hasher(ahash::RandomState::new())));
+        let next_users = Arc::new(RwLock::new(SmallVec::new()));
+        let ds_model = Arc::new(RwLock::new(load_model()));
         Self {
             ssrc_map,
             audio_buffer,
@@ -103,25 +108,27 @@ impl VoiceEventHandler for Receiver {
                 user_id: Some(user_id),
                 ..
             }) => {
-                if !do_check(user_id, &self.active_users) {
-                    return None;
-                }
+                do_check!(&self.active_users, user_id);
 
-                self.ssrc_map.insert(*ssrc, *user_id);
-                self.audio_buffer.insert(*ssrc, Vec::new());
+                {
+                    let mut ssrc_map = self.ssrc_map.write().ok()?;
+                    ssrc_map.insert(*ssrc, *user_id);
+                }
+                {
+                    let mut audio_buffer = self.audio_buffer.write().ok()?;
+                    audio_buffer.insert(*ssrc, Vec::new());
+                }
             }
             EventContext::SpeakingUpdate { ssrc, speaking } => {
-                let uid: u64 = match self.ssrc_map.get(ssrc) {
-                    Some(u) => u.0,
-                    None => 0,
-                };
-                if !do_check(&UserId(uid), &self.active_users) {
-                    return None;
-                };
-
                 if !*speaking {
-                    let audio = match self.audio_buffer.get_mut(ssrc) {
-                        Some(mut a) => {
+                    let uid = {
+                        let ssrc_map = self.ssrc_map.read().ok()?;
+                        *(ssrc_map.get(ssrc)?)
+                    };
+                    do_check!(&self.active_users, &uid);
+
+                    let audio = match self.audio_buffer.write().ok()?.get_mut(ssrc) {
+                        Some(a) => {
                             let res = a.clone();
                             a.clear();
                             res
@@ -129,15 +136,10 @@ impl VoiceEventHandler for Receiver {
                         None => return None,
                     };
 
-                    let u = match self.context.cache.user(uid).await {
-                        Some(u) => {
-                            if u.bot {
-                                return None;
-                            }
-                            u
-                        }
-                        None => return None,
-                    };
+                    let u = self.context.cache.user(uid.0).await?;
+                    if u.bot {
+                        return None;
+                    }
 
                     // these might seem weird, but these are required that way we can spawn the
                     // task below and move these variables into it without getting lifetime
@@ -244,17 +246,13 @@ impl VoiceEventHandler for Receiver {
                 // so we're trying to do stuff with as little overhead as possible
                 let st = std::time::Instant::now();
 
-                let uid = match self.ssrc_map.get(&packet.ssrc) {
-                    Some(u) => *u,
-                    None => return None,
-                };
-
-                if !do_check(&uid, &self.active_users) {
-                    return None;
-                };
+                do_check!(
+                    &self.active_users,
+                    self.ssrc_map.read().ok()?.get(&packet.ssrc)?
+                );
 
                 if let Some(audio) = audio {
-                    if let Some(mut b) = self.audio_buffer.get_mut(&packet.ssrc) {
+                    if let Some(b) = self.audio_buffer.write().ok()?.get_mut(&packet.ssrc) {
                         b.extend(audio)
                     };
                 }
@@ -282,37 +280,47 @@ impl VoiceEventHandler for Receiver {
                 user_id,
                 ..
             }) => {
-                self.ssrc_map.insert(*audio_ssrc, *user_id);
                 {
-                    if self.active_users.len() >= self.max_users as usize {
-                        let mut next_users = self
-                            .next_users
-                            .write()
-                            .expect("thread panicked while holding next user lock");
+                    let mut ssrc_map = self.ssrc_map.write().ok()?;
+                    ssrc_map.insert(*audio_ssrc, *user_id);
+                }
+                {
+                    let mut active_users = self.active_users.write().ok()?;
+                    if active_users.len() >= self.max_users as usize {
+                        let mut next_users = self.next_users.write().ok()?;
                         next_users.push(*user_id);
                     } else {
-                        self.active_users.insert(*user_id);
+                        active_users.insert(*user_id);
                     };
                 }
             }
             EventContext::ClientDisconnect(ClientDisconnect { user_id, .. }) => {
-                if let Some(u) = self.ssrc_map.iter().find_map(|i| {
-                    if i.value() == user_id {
-                        Some(*i.key())
-                    } else {
-                        None
-                    }
-                }) {
-                    self.audio_buffer.remove(&u);
-                    self.ssrc_map.remove(&u);
+                let ssrc_map = self.ssrc_map.read().ok()?;
+                if let Some(u) =
+                    ssrc_map.iter().find_map(
+                        |(ssrc, uid)| {
+                            if uid == user_id {
+                                Some(*ssrc)
+                            } else {
+                                None
+                            }
+                        },
+                    )
+                {
                     {
-                        self.active_users.remove(user_id);
-                        let mut next_users = self
-                            .next_users
-                            .write()
-                            .expect("thread panicked while holding next user lock");
+                        let mut audio_buffer = self.audio_buffer.write().ok()?;
+                        audio_buffer.remove(&u);
+                    }
+                    {
+                        let mut ssrc_map = self.ssrc_map.write().ok()?;
+                        ssrc_map.remove(&u);
+                    }
+                    {
+                        let mut active_users = self.active_users.write().ok()?;
+                        active_users.remove(user_id);
+                        let mut next_users = self.next_users.write().ok()?;
                         if let Some(user) = next_users.pop() {
-                            self.active_users.insert(user);
+                            active_users.insert(user);
                         };
                     }
                 };
