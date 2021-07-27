@@ -158,7 +158,7 @@ pub async fn load_prefixes() {
 
     let db = unsafe { PG_POOL.get().unwrap_unchecked() };
 
-    tracing::info("Fetching all prefixes from DB...");
+    tracing::info!("Fetching all prefixes from DB...");
     for i in query!("SELECT guild_id, prefix FROM prefixes")
         .fetch(db)
         .try_next()
