@@ -1,5 +1,5 @@
 use crate::bind;
-use scripty_db::PgPoolKey;
+use scripty_db::PG_POOL;
 use serenity::{futures::TryStreamExt, model::id::ChannelId, prelude::Context};
 use std::{convert::TryInto, sync::Arc};
 use tracing::{debug, warn};
@@ -8,8 +8,7 @@ use tracing::{debug, warn};
 /// `ctx` is a Arc<Context> containing the DB pool and Songbird client
 /// `force` decides whether to forcibly rejoin a voice chat. This will result in errors at some point.
 pub async fn auto_join(ctx: Arc<Context>, force: bool) {
-    let data = ctx.data.read().await;
-    let pool = unsafe { data.get::<PgPoolKey>().unwrap_unchecked() };
+    let pool = unsafe { PG_POOL.get().unwrap_unchecked() };
     let mut query = sqlx::query!("SELECT * FROM guilds").fetch(pool);
     while let Ok(row) = query.try_next().await {
         match row {
