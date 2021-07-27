@@ -140,6 +140,30 @@
       "nullable": []
     }
   },
+  "506b05212d32c09eab5dc3045fca99d5e67d88565998a125c761393f332e8ee3": {
+    "query": "SELECT guild_id, prefix FROM prefixes",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "guild_id",
+          "type_info": "Int8"
+        },
+        {
+          "ordinal": 1,
+          "name": "prefix",
+          "type_info": "Text"
+        }
+      ],
+      "parameters": {
+        "Left": []
+      },
+      "nullable": [
+        false,
+        true
+      ]
+    }
+  },
   "5ee61d02dfbb1f444284ea104445dec73fb38e3c3c1ce85d779f8d2f7163d416": {
     "query": "INSERT INTO prefixes\n                 (guild_id, prefix)\n             VALUES\n                 ($1, $2)\n             ON CONFLICT\n                 (guild_id)\n             DO UPDATE SET\n                 prefix = $2;",
     "describe": {
