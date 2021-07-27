@@ -12,6 +12,8 @@ systemstat = "*"
 chrono = "0.4"
 serde_json = "1.0"
 rand = "0.8"
+dashmap = "4.0"
+ahash = "0.7"
 
 scripty_db = { path = "../scripty_db" }
 scripty_config = { path = "../scripty_config" }

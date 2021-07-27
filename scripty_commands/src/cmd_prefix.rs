@@ -1,12 +1,19 @@
-use scripty_db::PgPoolKey;
+use ahash::RandomState;
+use dashmap::DashMap;
+use scripty_db::{PgPoolKey, PG_POOL};
 use scripty_macros::handle_serenity_error;
+use serenity::model::prelude::GuildId;
 use serenity::{
     builder::CreateEmbed,
     client::Context,
     framework::standard::{macros::command, Args, CommandResult},
+    futures::TryStreamExt,
     model::prelude::Message,
 };
 use sqlx::query;
+use std::lazy::SyncOnceCell as OnceCell;
+
+static PREFIXES: OnceCell<DashMap<GuildId, Option<String>, RandomState>> = OnceCell::new();
 
 #[command("prefix")]
 #[aliases(
@@ -65,10 +72,14 @@ async fn cmd_prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             .description("I just let my developer know, until then you could just try again");
     } else {
         embed.description(if !prefix.is_empty() {
-            format!("Voila! My prefix here is now `{}`", prefix)
+            format!("Voila! My prefix here is now `{}`", &prefix)
         } else {
             "Yay! I don't even need a prefix here anymore".to_string()
         });
+
+        PREFIXES
+            .get_or_init(|| DashMap::with_hasher(RandomState::new()))
+            .insert(guild_id, Some(prefix.to_string()));
     }
 
     if let Err(e) = msg
@@ -89,6 +100,13 @@ async fn cmd_prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 pub async fn prefix_check(ctx: &Context, msg: &Message) -> Option<String> {
     let guild_id = msg.guild_id?;
 
+    if let Some(prefix) = PREFIXES
+        .get_or_init(|| DashMap::with_hasher(RandomState::new()))
+        .get(&guild_id)
+    {
+        return prefix.value().clone();
+    }
+
     let data = ctx.data.read().await;
     let db = unsafe { data.get::<PgPoolKey>().unwrap_unchecked() };
 
@@ -105,15 +123,37 @@ pub async fn prefix_check(ctx: &Context, msg: &Message) -> Option<String> {
     .await
     {
         Err(err) => {
-            tracing::info!(
+            tracing::warn!(
                 "Couldn't fetch prefix from the database for the prefix check: {:?}",
                 err,
             );
             None
         }
-        Ok(row) => match row {
-            Some(row) => row.prefix,
-            None => None,
-        },
+        Ok(row) => {
+            let prefix: Option<String> = match row {
+                Some(row) => row.prefix,
+                None => None,
+            };
+
+            unsafe { PREFIXES.get().unwrap_unchecked() }.insert(guild_id, prefix.clone());
+
+            prefix
+        }
+    }
+}
+
+pub async fn load_prefixes() {
+    let prefixes = PREFIXES.get_or_init(|| DashMap::with_hasher(RandomState::new()));
+
+    let db = unsafe { PG_POOL.get().unwrap_unchecked() };
+
+    for i in query!("SELECT guild_id, prefix FROM prefixes")
+        .fetch(db)
+        .try_next()
+        .await
+    {
+        if let Some(row) = i {
+            prefixes.insert(GuildId(row.guild_id as u64), row.prefix);
+        }
     }
 }

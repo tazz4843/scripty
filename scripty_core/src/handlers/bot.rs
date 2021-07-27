@@ -1,4 +1,5 @@
 use scripty_audio::auto_join;
+use scripty_commands::load_prefixes;
 use scripty_metrics::spawn_updater_task;
 use scripty_utils::START_TIME;
 use serenity::model::interactions::InteractionType;
@@ -75,6 +76,8 @@ impl EventHandler for Handler {
                     tokio::time::sleep(Duration::from_secs(30)).await
                 }
             });
+
+            load_prefixes().await;
         }
     }
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
