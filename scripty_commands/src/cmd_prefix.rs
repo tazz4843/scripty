@@ -12,6 +12,7 @@ use serenity::{
 };
 use sqlx::query;
 use std::lazy::SyncOnceCell as OnceCell;
+use std::time::Instant;
 
 static PREFIXES: OnceCell<DashMap<GuildId, Option<String>, RandomState>> = OnceCell::new();
 
@@ -98,19 +99,23 @@ async fn cmd_prefix(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 }
 
 pub async fn prefix_check(ctx: &Context, msg: &Message) -> Option<String> {
+    let st = Instant::now();
+
     let guild_id = msg.guild_id?;
 
     if let Some(prefix) = PREFIXES
         .get_or_init(|| DashMap::with_hasher(RandomState::new()))
         .get(&guild_id)
     {
+        let et = Instant::now();
+        tracing::debug!("prefix fetched in {}ns", et.duration_since(st).as_nanos());
         return prefix.value().clone();
     }
 
     let data = ctx.data.read().await;
     let db = unsafe { data.get::<PgPoolKey>().unwrap_unchecked() };
 
-    match query!(
+    let ret = match query!(
         "SELECT
            prefix
          FROM
@@ -139,14 +144,21 @@ pub async fn prefix_check(ctx: &Context, msg: &Message) -> Option<String> {
 
             prefix
         }
-    }
+    };
+    let et = Instant::now();
+    tracing::debug!("prefix fetched in {}ns", et.duration_since(st).as_nanos());
+    ret
 }
 
 pub async fn load_prefixes() {
+    let st = Instant::now();
+
+    tracing::info!("Initializing prefix cache...");
     let prefixes = PREFIXES.get_or_init(|| DashMap::with_hasher(RandomState::new()));
 
     let db = unsafe { PG_POOL.get().unwrap_unchecked() };
 
+    tracing::info("Fetching all prefixes from DB...");
     for i in query!("SELECT guild_id, prefix FROM prefixes")
         .fetch(db)
         .try_next()
@@ -156,4 +168,10 @@ pub async fn load_prefixes() {
             prefixes.insert(GuildId(row.guild_id as u64), row.prefix);
         }
     }
+
+    let et = Instant::now();
+    tracing::info!(
+        "Loaded prefix map in {}ns",
+        et.duration_since(st).as_nanos()
+    );
 }
