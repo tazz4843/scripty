@@ -4,7 +4,7 @@
 
 use ahash::RandomState;
 use scripty_audio_utils::{load_model, run_stt, Model};
-use scripty_metrics::{Metrics, METRICS};
+use scripty_metrics::METRICS;
 use serenity::builder::ExecuteWebhook;
 use serenity::model::prelude::Embed;
 use serenity::{async_trait, model::webhook::Webhook, prelude::Context};
@@ -260,10 +260,7 @@ impl VoiceEventHandler for Receiver {
                 let et = std::time::Instant::now();
                 {
                     let client_data = self.context.data.read().await;
-                    let m = unsafe { METRICS.get().unwrap_unchecked() };
-                    let metrics = client_data
-                        .get::<Metrics>()
-                        .unwrap_or_else(|| unsafe { unreachable_unchecked() });
+                    let metrics = unsafe { METRICS.get().unwrap_unchecked() };
                     // 20ms audio packet: if it isn't 20 but rather 30 oh well too bad, it's only 10ms we lose
                     // anything else shouldn't ever happen
                     metrics.ms_transcribed.inc_by(20);
