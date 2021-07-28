@@ -13,6 +13,7 @@ chrono = "0.4"
 serde_json = "1.0"
 rand = "0.8"
 dashmap = "4.0"
+ahash = "0.7"
 
 scripty_db = { path = "../scripty_db" }
 scripty_config = { path = "../scripty_config" }
@@ -20,10 +21,6 @@ scripty_audio = { path = "../scripty_audio" }
 scripty_macros = { path = "../scripty_macros" }
 scripty_utils = { path = "../scripty_utils" }
 scripty_metrics = { path = "../scripty_metrics" }
-
-[dependencies.ahash]
-version = "0.7"
-default-features = false
 
 [dependencies.sqlx]
 version = "0.5"
