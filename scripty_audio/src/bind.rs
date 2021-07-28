@@ -8,6 +8,7 @@ use serenity::{
 use songbird::CoreEvent;
 use sqlx::query;
 use std::{convert::TryInto, sync::Arc};
+use tracing::{debug, warn};
 
 pub async fn bind(
     ctx: &Context,
@@ -21,6 +22,7 @@ pub async fn bind(
         return Err("No DB pool found.".to_string());
     };
 
+    debug!(guild_id = guild_id.0, "checking channel type");
     match match bind_channel.to_channel(&ctx).await {
         Ok(c) => c,
         Err(e) => {
@@ -36,6 +38,7 @@ pub async fn bind(
         _ => return Err("Not a guild channel.".to_string()),
     };
 
+    debug!(guild_id = guild_id.0, "checking premium level");
     let premium_level: u8 = match query!(
         "SELECT premium_level FROM guilds WHERE guild_id = $1",
         i64::from(guild_id)
@@ -57,6 +60,10 @@ pub async fn bind(
         Err(e) => return Err(format!("DB returned a error: {:?}", e)),
     };
 
+    debug!(
+        transcription_id = transcription_channel.0,
+        "fetching webhook token/id"
+    );
     let (token, id): (String, u64) = match query!(
         "SELECT webhook_token, webhook_id FROM channels WHERE channel_id = $1",
         i64::from(transcription_channel)
@@ -86,30 +93,40 @@ pub async fn bind(
         Err(e) => return Err(format!("DB returned a error: {:?}", e)),
     };
 
+    debug!(
+        transcription_id = transcription_channel.0,
+        "fetching actual webhook"
+    );
     let webhook = match ctx.http.http().get_webhook_with_token(id, &*token).await {
         Ok(w) => w,
         Err(e) => return Err(format!("Error while fetching webhook: {}", e)),
     };
 
+    debug!(guild_id = guild_id.0, "loading songbird client");
     let manager = songbird::get(ctx)
         .await
         .expect("Songbird Voice client placed in at initialisation.")
         .clone();
 
+    debug!(guild_id = guild_id.0, "connecting to VC");
     let (handler_lock, conn_result) = manager.join(guild_id, bind_channel).await;
 
     match conn_result {
         Ok(_) => {
+            debug!(guild_id = guild_id.0, "connected");
             // NOTE: this skips listening for the actual connection result.
             let mut handler = handler_lock.lock().await;
 
             let ctx1 = Arc::new(ctx.clone());
 
+            debug!(guild_id = guild_id.0, "creating receiver");
             let receiver =
                 Receiver::new(webhook, ctx1, premium_level, guild_id == 675390855716274216).await;
 
+            debug!(guild_id = guild_id.0, "muting self");
             let _ = handler.mute(true).await;
 
+            debug!(guild_id = guild_id.0, "registering receiver");
             handler.add_global_event(CoreEvent::SpeakingStateUpdate.into(), receiver.clone());
             handler.add_global_event(CoreEvent::SpeakingUpdate.into(), receiver.clone());
             handler.add_global_event(CoreEvent::VoicePacket.into(), receiver.clone());
