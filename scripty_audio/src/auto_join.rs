@@ -10,7 +10,6 @@ use tracing::{debug, info, warn};
 pub async fn auto_join(ctx: Arc<Context>, force: bool) {
     let pool = unsafe { PG_POOL.get().unwrap_unchecked() };
     let mut query = sqlx::query!("SELECT * FROM guilds").fetch(pool);
-    debug!("Connecting to all VCs");
     let mut vcs = Vec::new();
     for row in query.try_next().await {
         match row {
@@ -18,6 +17,7 @@ pub async fn auto_join(ctx: Arc<Context>, force: bool) {
             _ => break,
         }
     }
+    info!("found {} set up channels", vcs.len());
     for row in vcs {
         let guild_id = row.guild_id;
         info!(guild_id = guild_id, "trying to connect to VC");
