@@ -21,6 +21,9 @@ jobs:
           toolchain: nightly
           override: true
 
+      - name: "get patched lib"
+        run: "cd ../ && git clone --depth 1 https://github.com/tazz4843/deepspeech-rs/ && cd deepspeech-rs && git submodule init && git submodule update --depth 1 && cd ../scripty"
+
       - run: rustup component add rustfmt
 
       - uses: actions-rs/cargo@v1
@@ -42,6 +45,9 @@ jobs:
           toolchain: nightly
           components: clippy
           override: true
+
+      - name: "get patched lib"
+        run: "cd ../ && git clone --depth 1 https://github.com/tazz4843/deepspeech-rs/ && cd deepspeech-rs && git submodule init && git submodule update --depth 1 && cd ../scripty"
 
       - uses: actions-rs/clippy-check@v1
         with:
