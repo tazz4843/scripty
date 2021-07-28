@@ -71,8 +71,9 @@ async fn cmd_setup(ctx: &Context, msg: &Message) -> CommandResult {
         .channel_id(msg.channel_id)
         .guild_id(unsafe { msg.guild_id.unwrap_unchecked() })
         .filter(|action| {
-            action.data.component_type == ComponentType::Button
-                && action.data.custom_id.as_str() == "tos_agree"
+            let res = action.data.component_type == ComponentType::Button
+                && action.data.custom_id.as_str() == "tos_agree";
+            res
         })
         .timeout(Duration::from_secs(300))
         .await

@@ -8,7 +8,7 @@ use serenity::{
 use songbird::CoreEvent;
 use sqlx::query;
 use std::{convert::TryInto, sync::Arc};
-use tracing::{debug, warn};
+use tracing::debug;
 
 pub async fn bind(
     ctx: &Context,
