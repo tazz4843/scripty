@@ -29,6 +29,8 @@ members = [
 scripty_core = { path = "scripty_core" }
 
 tracing = "0.1"
+# fixes recursive dependency error: IS NOT UNUSED
+indexmap = "=1.6.2"
 
 [dependencies.tokio]
 version = "1.8"
