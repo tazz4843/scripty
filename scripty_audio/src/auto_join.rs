@@ -1,7 +1,7 @@
 use crate::bind;
 use scripty_db::PG_POOL;
 use serenity::{futures::TryStreamExt, model::id::ChannelId, prelude::Context};
-use std::{convert::TryInto, sync::Arc};
+use std::sync::Arc;
 use tracing::{debug, info, warn};
 
 /// Automatically joins all voice chats the bot can see in its DB.
@@ -38,21 +38,17 @@ pub async fn auto_join(ctx: Arc<Context>, force: bool) {
             if already_connected {
                 debug!(guild_id = guild_id, "connection already exists, skipping");
                 continue;
+            } else {
+                debug!(guild_id = guild_id, "no connection found, connecting to VC");
             };
         }
 
-        let vc_id = match row.default_bind {
-            Some(v) => v,
-            None => {
-                continue;
-            }
-        };
-        let result_id = match row.output_channel {
-            Some(v) => v,
-            None => {
-                continue;
-            }
-        };
+        debug!(
+            guild_id = guild_id,
+            "fetching default bind and output channel"
+        );
+        let vc_id = row.default_bind;
+        let result_id = row.output_channel;
 
         if let Err(e) = bind(
             &ctx,
@@ -64,7 +60,7 @@ pub async fn auto_join(ctx: Arc<Context>, force: bool) {
         {
             warn!(guild_id = guild_id, "failed to join VC: {}", e);
             if let Err(e) =
-                ChannelId(result_id.try_into().unwrap())
+                ChannelId(result_id as u64)
                     .send_message(&ctx, |m| {
                         m.embed(|embed| {
                             embed

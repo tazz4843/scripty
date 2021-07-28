@@ -38,8 +38,8 @@ pub async fn set_db() -> Pool<Postgres> {
     query!(
         "CREATE TABLE IF NOT EXISTS guilds (
         guild_id BIGINT PRIMARY KEY,
-        default_bind BIGINT,
-        output_channel BIGINT,
+        default_bind BIGINT NOT NULL,
+        output_channel BIGINT NOT NULL,
         premium_level SMALLINT NOT NULL
     )",
     )
