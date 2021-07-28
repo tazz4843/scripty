@@ -124,8 +124,8 @@
       },
       "nullable": [
         false,
-        true,
-        true,
+        false,
+        false,
         false
       ]
     }
@@ -199,16 +199,6 @@
       "nullable": []
     }
   },
-  "afeb95b4606d79aade15df4e104f5093e6ae73b5b17a0ea43b5704b76493b2f2": {
-    "query": "CREATE TABLE IF NOT EXISTS guilds (\n        guild_id BIGINT PRIMARY KEY,\n        default_bind BIGINT,\n        output_channel BIGINT,\n        premium_level SMALLINT NOT NULL\n    )",
-    "describe": {
-      "columns": [],
-      "parameters": {
-        "Left": []
-      },
-      "nullable": []
-    }
-  },
   "b5b7a279260216d61719ca9941ea66a5b10ada7c27dda000c7320d117c9375d2": {
     "query": "INSERT INTO api_keys VALUES ($1, $2)",
     "describe": {
@@ -244,6 +234,16 @@
   },
   "c411ba0e890eb2ac6b3ecb494a798a627dd02878dad719d4db9b0402798379b5": {
     "query": "CREATE TABLE IF NOT EXISTS users (\n        user_id BIGINT PRIMARY KEY,\n        premium_level SMALLINT,\n        premium_count SMALLINT\n    )",
+    "describe": {
+      "columns": [],
+      "parameters": {
+        "Left": []
+      },
+      "nullable": []
+    }
+  },
+  "c451b821ecbddb8abfaa208bbf0b93d4ecf12c2e652ab6615b6c3b3a512896f7": {
+    "query": "CREATE TABLE IF NOT EXISTS guilds (\n        guild_id BIGINT PRIMARY KEY,\n        default_bind BIGINT NOT NULL,\n        output_channel BIGINT NOT NULL,\n        premium_level SMALLINT NOT NULL\n    )",
     "describe": {
       "columns": [],
       "parameters": {
@@ -360,8 +360,8 @@
       },
       "nullable": [
         false,
-        true,
-        true,
+        false,
+        false,
         false
       ]
     }
