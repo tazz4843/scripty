@@ -8,12 +8,15 @@ edition = "2018"
 [dependencies]
 tracing = "0.1"
 songbird = "0.1"
-ahash = "0.7"
 smallvec = "1.6"
 scripty_db = { path = "../scripty_db" }
 scripty_config = { path = "../scripty_config" }
 scripty_metrics = { path = "../scripty_metrics" }
 scripty_audio_utils = { path = "../scripty_audio_utils" }
+
+[dependencies.ahash]
+version = "0.7"
+default-features = false
 
 [dependencies.sqlx]
 version = "0.5"
