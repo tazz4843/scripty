@@ -3,8 +3,8 @@ name: Build on Push
 on:
   push:
     paths:
-      - "src/**.rs"
-      - "Cargo.toml"
+      - "**/src/**.rs"
+      - "**/Cargo.toml"
 
 jobs:
   build:
