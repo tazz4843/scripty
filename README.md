@@ -2,6 +2,10 @@
 
 Welcome to Scripty's GitHub repo! This repo contains the bot's entire source code.
 
+# Scripty is discontinued forever!
+
+Discord has made their platform absolute hell to work on. I personally cannot support a platform that thinks of devs in such a way that they're essentially disposable. No PRs or issues will be accepted for Scripty any more. If something breaks, I will not fix it. Deal with it or fix it yourself. If you try to contact me about something being broken, you'll be blocked. If you still need more of my reasoning behind this, go read Danny's gist: https://gist.github.com/Rapptz/4a2f62751b9600a31a0d3c78100287f1.
+
 ## What is Scripty?
 
 In a nutshell, Scripty is a speech to text bot for Discord voice chats.
